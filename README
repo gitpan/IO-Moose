@@ -1,0 +1,291 @@
+NAME
+    IO::Moose::Handle - Moose reimplementation of IO::Handle with
+    improvements
+
+SYNOPSIS
+      use IO::Moose::Handle;
+
+      $fh = new IO::Moose::Handle;
+      $fh->fdopen(fileno(STDIN));
+      print $fh->getline;
+      $file = $fh->slurp;
+      $fh->close;
+
+      $fh = fdopen IO::Moose::Handle \*STDERR, '>';
+      autoflush $fh 1;
+      say $fh 'Some text';
+      undef $fh;  # calls close at DESTROY
+
+DESCRIPTION
+    This class provides an interface mostly compatible with IO::Handler. The
+    differences:
+
+    *   It is based on Moose object framework.
+
+    *   It uses Exception::Base for signaling errors. Most of methods are
+        throwing exception on failure.
+
+    *   The modifiers like input_record_separator are supported on
+        per-filehandler basis.
+
+    *   It also implements additional methods like say, slurp.
+
+    *   It is pure-Perl implementation.
+
+BASE CLASSES
+    * MooseX::GlobRef::Object
+
+FIELDS
+    fd (rw, new)
+        File descriptor (string, file handle or IO object) as a parameter
+        for new object.
+
+    mode (rw, new)
+        File mode as a parameter for new object. Can be Perl-style (<, >,
+        >>, etc.) or C-style (r, w, a, etc.)
+
+    fh (ro)
+        File handler used for internal IO operations.
+
+    autochomp (rw)
+        If is true value the input will be auto chomped.
+
+    input_record_separator, clear_input_record_separator (rw, $/)
+    output_field_separator, clear_output_field_separator (rw, $,)
+    output_record_separator, clear_output_record_separator (rw, $\)
+    format_formfeed, clear_format_formfeed (rw, $^L)
+    format_line_break_characters, clear_format_line_break_characters (rw,
+    $:)
+    format_lines_left (rw, $-)
+    format_lines_per_page (rw, $=)
+    format_page_number (rw, $%)
+    input_line_number (rw, $.)
+    autoflush, output_autoflush (rw, $|)
+    format_name (rw, $~)
+    format_top_name (rw, $^)
+        These are attributes assigned with Perl's built-in variables. See
+        perlvar for complete descriptions. The fields have accessors
+        available as per-filehandle basis if called as $io->accessor or as
+        global setting if called as IO::Moose::Handle->accessor.
+
+CONSTRUCTORS
+    new Creates the IO::Moose::Handle object and calls fdopen method if the
+        *fd* parameter is defined.
+
+          $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+
+        The object can be created with uninitialized file handle.
+
+          $in = new IO::Moose::Handle;
+          $in->fdopen(\*STDIN);
+
+    new_from_fd(*fd* [, *mode*])
+        Creates the IO::Moose::Handle object and immediately opens the file
+        handle based on arguments.
+
+          $out = new_from_fd IO::Moose::Handle \*STDOUT, "w";
+
+METHODS
+    fdopen(*fd* [, *mode*])
+        Opens the file handle based on existing file handle, file handle
+        name, IO object or file descriptor number.
+
+          $out = new IO::Moose::Handle;
+          $out->fdopen(\*STDOUT, "w");
+
+          $dup = new IO::Moose::Handle;
+          $dup->fdopen($out, "a");
+
+    close
+    eof
+    fileno
+    print([*args*])
+    printf([*fmt* [, *args*]])
+    readline
+    sysread(*buf*, *len* [, *offset*])
+    syswrite(*buf* [, *len* [, *offset*]])
+    getc
+    truncate(*len*)
+        These are front ends for corresponding built-in functions. Most of
+        them throws exception on failure which can be caught with try/catch:
+
+          use Exception::Base ':all';
+          try eval {
+            open $f, "/etc/hostname";
+            $io = new IO::Moose::Handle fd=>$f, mode=>"r";
+            $c = $io->getc;
+          };
+          if (catch my $e) {
+            warn "problem with /etc/hostname file: $e";
+          }
+
+    opened
+        Returns true value if the object has opened file handle, false
+        otherwise.
+
+    write(*buf* [, *len* [, *offset*]])
+        The opposite of read. The wrapper for the perl CORE::write function
+        is called format_write.
+
+    format_write([<format_name])
+        The wrapper for perl CORE::format function.
+
+    getline
+        The readline method which is called always in scalar context.
+
+          $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+          push @a, $io->readline;  # reads only one line
+
+    getlines
+        The readline method which is called always in array context.
+
+          $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+          print scalar $io->readlines;  # error: can't call in scalar context.
+
+    ungetc(*ord*)
+        Pushes a character with the given ordinal value back onto the given
+        handle's input stream. In fact this is emulated in pure-Perl code
+        and can't be mixed with non IO::Moose::Handle objects.
+
+          $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+          $io->ungetc(ord('A'));
+          print $io->getc;  # prints A
+
+    say([*args*])
+        The print method with EOL character at the end.
+
+          $io = new IO::Moose::Handle fd=>\*STDOUT, mode=>"w";
+          $io->say("Hello!");
+
+    slurp
+        Reads whole file and returns its content as a scalar in scalar
+        context or as an array in array context (like getlines method).
+
+          open $f, "/etc/passwd";
+  
+          $io1 = new IO::Moose::Handle fd=>$f, "r";
+          $passwd_file = $io1->slurp;
+  
+          $io2 = new IO::Moose::Handle fd=>$f, "r";
+          $io2->autochomp(1);
+          @passwd_lines = $io2->slurp;
+
+    IO::Moose::Handle->slurp(*fd*)
+        Creates the IO::Moose::Handle object and returns its content as a
+        scalar in scalar context or as an array in array context.
+
+          open $f, "/etc/passwd";  
+          $passwd_file = IO::Moose::Handle->slurp($f);
+
+    stat
+        Returns File::Stat::Moose object which represents status of file
+        pointed by current file handle.
+
+          open $f, "/etc/passwd";
+          $io = new IO::Moose::Handle fd=>$f, "r";
+          $st = $io->stat;
+          print $st->size;  # size of /etc/passwd file
+
+    error
+        Returns true value if the given handle has experienced any errors
+        since it was opened or since the last call to clearerr, or if the
+        handle is invalid.
+
+        It is recommended to use exceptions mechanism to handle errors.
+
+    clearerr
+        Clear the given handle's error indicator. Returns -1 if the handle
+        is invalid, 0 otherwise.
+
+    sync
+        Synchronizes a file's in-memory state with that on the physical
+        medium. It operates on file descriptor and it is low-level
+        operation. Returns "0 but true" on success or undef on error.
+
+    flush
+        Flushes any buffered data at the perlio api level. Returns "0 but
+        true" on success or undef on error.
+
+    printflush(*args*)
+        Turns on autoflush, print *args* and then restores the autoflush
+        status. Returns the return value from print.
+
+    blocking([*bool*])
+        If called with an argument blocking will turn on non-blocking IO if
+        *bool* is false, and turn it off if *bool* is true. blocking will
+        return the value of the previous setting, or the current setting if
+        *bool* is not given.
+
+    untaint
+        Marks the object as taint-clean, and as such data read from it will
+        also be considered taint-clean. Returns "0 but true" on success, -1
+        if setting the taint-clean flag failed. It has meaning only if Perl
+        is running in tainted mode (-T).
+
+    taint
+        Unmarks the object as taint-clean. Returns "0 but true" on success,
+        -1 if setting the taint-clean flag failed.
+
+INTERNALS
+    The main problem is that Perl does not support the indirect notation for
+    IO object's functions like print, close, etc.
+
+      package My::IO::BadExample;
+      sub new { bless {}, $_[0]; }
+      sub open { my $self=shift; CORE::open $self->{fh}, @_; }
+      sub print { my $self=shift; CORE::print {$self->{fh}} @_; }
+
+      package main;
+      my $io = new My::IO::BadExample;
+      open $io '>', undef;  # Wrong: missing comma after first argument
+      print $io "test";     # Wrong: not GLOB reference
+
+    You can use tied handlers:
+
+      $io = \*FOO;
+      tie *$io, 'My::IO::Tie';
+      open $io, '>', undef;  # see comma after $io: open is just a function
+      print $io "test";      # standard indirect notation
+
+    The IO::Moose::Handle object is stored in hash available via globref.
+
+    There are two handlers used for IO operations: the original handler used
+    for real IO operations and tied handler which hooks IO functions
+    interface.
+
+    The OO-style uses orignal handler stored in *fh* field.
+
+      $io->print("OO style");
+      ## package IO::Moose::Handle;
+      ## sub print { $self=shift; $hashref=${*$self};
+      ##   CORE::print {$hashref->{fh}} @_
+      ## }
+
+    The IO functions-style uses object reference which is derefered as a
+    handler tied to proxy object which operates on original handler.
+
+      print $io "IO functions style";
+      ## package IO::Moose::Handle::Tie;
+      ## \*PRINT = &IO::Moose::Handle::print;
+      ## ## package IO::Moose::Handle;
+      ## ## sub print { $self=shift; $self=$$self; $hashref=${*$self};
+      ## ##   CORE::print {$hashref->{fh}} @_
+      ## ## }
+
+SEE ALSO
+    IO::Handle, MooseX::GlobRef::Object, Moose.
+
+BUGS
+    The API is not stable yet and can be changed in future.
+
+AUTHOR
+    Piotr Roszatycki <dexter@debian.org>
+
+LICENSE
+    Copyright 2007, 2008 by Piotr Roszatycki <dexter@debian.org>.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+    See <http://www.perl.com/perl/misc/Artistic.html>
+

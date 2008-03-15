@@ -1,0 +1,16 @@
+Build.PL
+Changes
+eg/uniq_func.pl
+eg/uniq_oo.pl
+lib/IO/Moose/Handle.pm
+MANIFEST			This list of files
+t/all_tests.t
+t/all_tests_tainted.t
+t/pod.t
+t/pod_coverage.t
+t/test.pl
+t/test_tainted.pl
+t/tlib/IO/Moose/HandleTest.pm
+Makefile.PL
+README
+META.yml
