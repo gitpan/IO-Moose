@@ -1,4 +1,10 @@
 ------------------------------------------------------------------------
+0.03 | Piotr Roszatycki <dexter@debian.org> | 2008-04-08
+
+* New module IO::Moose and IO::Moose::Seekable.
+* IO::Moose::Handle::Tie moved into IO::Moose::Handle.
+
+------------------------------------------------------------------------
 0.02 | Piotr Roszatycki <dexter@debian.org> | 2008-03-15
 
 * Renamed distribution to IO-Moose and existing module to IO::Moose::Handle.

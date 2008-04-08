@@ -129,19 +129,22 @@ sub test_fdopen_error {
     $self->assert_not_null($obj1);
     $self->assert($obj1->isa("IO::Moose::Handle"), '$obj1->isa("IO::Moose::Handle")');
     try eval { $obj1->fdopen; };
-    catch my $e1, ['Exception::Argument'];
+    catch my $e1;
+    $self->assert_equals('Exception::Argument', ref $e1);
 
     my $obj2 = IO::Moose::Handle->new;
     $self->assert_not_null($obj2);
     $self->assert($obj2->isa("IO::Moose::Handle"), '$obj2->isa("IO::Moose::Handle")');
     try eval { $obj2->fdopen($fh_in, '<', 'extra_arg'); };
-    catch my $e2, ['Exception::Argument'];
+    catch my $e2;
+    $self->assert_equals('Exception::Argument', ref $e2);
 
     my $obj3 = IO::Moose::Handle->new;
     $self->assert_not_null($obj3);
     $self->assert($obj3->isa("IO::Moose::Handle"), '$obj3->isa("IO::Moose::Handle")');
     try eval { $obj3->fdopen('IO_HANDLE_MOOSETEST_BADGLOB'); };
-    catch my $e3, ['Exception::IO'];
+    catch my $e3;
+    $self->assert_equals('Exception::IO', ref $e3);
 
     my $obj4 = IO::Moose::Handle->new;
     $self->assert_not_null($obj4);

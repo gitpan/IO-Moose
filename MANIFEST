@@ -1,9 +1,17 @@
 Build.PL
 Changes
+eg/file_size_func.pl
+eg/file_size_oo.pl
+eg/slurp.pl
 eg/uniq_func.pl
 eg/uniq_oo.pl
+lib/IO/Moose.pm
 lib/IO/Moose/Handle.pm
+lib/IO/Moose/Seekable.pm
+Makefile.PL
 MANIFEST			This list of files
+META.yml
+README
 t/all_tests.t
 t/all_tests_tainted.t
 t/pod.t
@@ -11,6 +19,7 @@ t/pod_coverage.t
 t/test.pl
 t/test_tainted.pl
 t/tlib/IO/Moose/HandleTest.pm
-Makefile.PL
-README
-META.yml
+t/tlib/IO/Moose/IO_MooseTest_Bad.pm
+t/tlib/IO/Moose/IO_MooseTest_Good.pm
+t/tlib/IO/Moose/SeekableTest.pm
+t/tlib/IO/MooseTest.pm

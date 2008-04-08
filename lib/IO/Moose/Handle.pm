@@ -2,7 +2,7 @@
 
 package IO::Moose::Handle;
 use 5.006;
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 
 =head1 NAME
 
@@ -116,7 +116,7 @@ has 'error' =>
     default => -1;
 
 has 'ungetc_buffer' =>
-    default => '';
+    default => "";
 
 has 'autochomp' =>
     is      => 'rw';
@@ -151,10 +151,6 @@ use Errno ();
 eval { require Fcntl };
 
 
-# Constant for IO::Moose::Handle::* package name
-sub __TIEPACKAGE__ () { __PACKAGE__ . '::Tie' };
-
-
 # Debugging flag
 our $Debug = 0;
 
@@ -176,7 +172,7 @@ sub BUILD {
     }
     else {
         # tie handler with proxy class just here
-        tie *$self, __TIEPACKAGE__, $self;
+        tie *$self, blessed $self, $self;
     }
 
     return $self;
@@ -228,11 +224,11 @@ sub fdopen {
             warn "fdopen: open(fh, $mode&, \$fd->{fh})\n" if $Debug;
             $status = CORE::open $hashref->{fh}, "$mode&", ${*$fd}->{fh};
         }
-        elsif ((ref $fd || '') eq 'GLOB') {
+        elsif ((ref $fd || "") eq 'GLOB') {
             warn "fdopen: open(fh, $mode&, \\$$fd)\n" if $Debug;
             $status = CORE::open $hashref->{fh}, "$mode&", $fd;
         }
-        elsif ((reftype $fd || '') eq 'GLOB') {
+        elsif ((reftype $fd || "") eq 'GLOB') {
             warn "fdopen: open(fh, $mode&, *$fd)\n" if $Debug;
             $status = CORE::open $hashref->{fh}, "$mode&", *$fd;
         }
@@ -279,7 +275,7 @@ sub fdopen {
     else {
         CORE::open *$self, "$mode&", $hashref->{fh};
     }
-    tie *$self, __TIEPACKAGE__, $self;
+    tie *$self, blessed $self, $self;
 
     return $self;
 }
@@ -292,7 +288,7 @@ sub close {
     my ($self) = @_;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -314,7 +310,7 @@ sub close {
     # close also tied handler
     untie *$self;
     CORE::close *$self;
-    tie *$self, __TIEPACKAGE__, $self;
+    tie *$self, blessed $self, $self;
 
     return $self;
 }
@@ -327,7 +323,7 @@ sub eof {
     my ($self) = @_;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -359,7 +355,7 @@ sub fileno {
     my ($self) = @_;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -398,7 +394,7 @@ sub print {
     my $self = shift;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -452,7 +448,7 @@ sub printf {
     my $self = shift;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -509,7 +505,7 @@ sub write {
 
     my $status = try eval {
         # clean IO modifiers
-        local $\ = '';
+        local $\ = "";
 
         # IO modifiers based on tied fh modifiers
         my $oldfh = select *$self;
@@ -606,7 +602,7 @@ sub readline {
     my $self = shift;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -629,8 +625,8 @@ sub readline {
         # scalar or array context
         if ($wantarray) {
             my @ungetc_lines;
-            my $ungetc_string = '';
-            if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne '') {
+            my $ungetc_string = "";
+            if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
                 # iterate for splitted ungetc buffer
                 $ungetc_begin = 0;
                 while (($ungetc_end = index $hashref->{ungetc_buffer}, $/, $ungetc_begin) > -1) {
@@ -641,14 +637,14 @@ sub readline {
                 $ungetc_string = substr $hashref->{ungetc_buffer}, $ungetc_begin;
             }
             $status = scalar(@lines = CORE::readline $hashref->{fh});
-            $lines[0] = $ungetc_string . $lines[0] if defined $lines[0] and $lines[0] ne '';
+            $lines[0] = $ungetc_string . $lines[0] if defined $lines[0] and $lines[0] ne "";
             unshift @lines, @ungetc_lines if @ungetc_lines;
             chomp @lines if $hashref->{autochomp};
             @lines = map { /(.*)/s; $1 } @lines if $hashref->{untaint};
         }
         else {
-            my $ungetc_string = '';
-            if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne '') {
+            my $ungetc_string = "";
+            if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
                 if (($ungetc_end = index $hashref->{ungetc_buffer}, $/, 0) > -1) {
                     $ungetc_string = substr $hashref->{ungetc_buffer}, 0, $ungetc_end + 1;
                 }
@@ -664,7 +660,7 @@ sub readline {
             else {
                 # also call real readline
                 $status = defined($line = CORE::readline $hashref->{fh});
-                $line = $ungetc_string . (defined $line ? $line : '');
+                $line = $ungetc_string . (defined $line ? $line : "");
             }
             chomp $line if $hashref->{autochomp};
             if ($hashref->{untaint}) {
@@ -690,12 +686,12 @@ sub readline {
     }
 
     # clean ungetc buffer
-    if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne '') {
+    if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
         if (not $wantarray and $ungetc_end > -1) {
             $hashref->{ungetc_buffer} = substr $hashref->{ungetc_buffer}, $ungetc_end + 1;
         }
         else {
-            $hashref->{ungetc_buffer} = '';
+            $hashref->{ungetc_buffer} = "";
         }
     }
 
@@ -764,7 +760,7 @@ sub ungetc {
 
     my ($ord) = @_;
 
-    $hashref->{ungetc_buffer} = '' if not defined $hashref->{ungetc_buffer};
+    $hashref->{ungetc_buffer} = "" if not defined $hashref->{ungetc_buffer};
     substr($hashref->{ungetc_buffer}, 0, 0) = chr($ord);
 
     return $self;
@@ -778,7 +774,7 @@ sub sysread {
     my $self = shift;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -821,7 +817,7 @@ sub syswrite {
     my $self = shift;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -865,7 +861,7 @@ sub getc {
     my $self = shift;
 
     # handle tie hook
-    $self = $$self if blessed $self and $self->isa(__TIEPACKAGE__);
+    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
           ignore_package => __PACKAGE__,
@@ -877,7 +873,7 @@ sub getc {
 
     undef $!;
     my $char = try eval {
-        if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne '') {
+        if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
             substr $hashref->{ungetc_buffer}, 0, 1;
         }
         else {
@@ -901,7 +897,7 @@ sub getc {
     }
 
     # clean ungetc buffer
-    if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne '') {
+    if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
         $hashref->{ungetc_buffer} = substr $hashref->{ungetc_buffer}, 1;
     }
 
@@ -1142,7 +1138,7 @@ sub flush {
     $\ = undef;
 
     my $status = try eval {
-        CORE::print { $hashref->{fh} } '';
+        CORE::print { $hashref->{fh} } "";
     };
 
     ($|, $\) = @var;
@@ -1330,6 +1326,28 @@ sub DESTROY {
 }
 
 
+# Tie hook. Others are initialized by INIT block.
+sub TIEHANDLE {
+    warn "TIEHANDLE @_" if $Debug;
+
+    my ($class, $instance) = @_;
+
+    # tie object will be stored in scalar reference of main object
+    my $self = \$instance;
+
+    # weaken the real object, otherwise it won't be destroyed automatically
+    weaken $instance;
+
+    return bless $self => $class;
+}
+
+
+# Called on untie.
+sub UNTIE {
+    warn "UNTIE @_" if $Debug;
+}
+
+
 # Add missing methods through Class::MOP
 INIT: {
     # Generate accessors for IO modifiers (global and local)
@@ -1441,12 +1459,12 @@ INIT: {
 
     # Assing tie hooks to real functions
     foreach my $func (qw< close eof fileno print printf readline getc >) {
-        __TIEPACKAGE__->meta->alias_method(
+        __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method($func)->body
         );
     }
     foreach my $func (qw< read write >) {
-        __TIEPACKAGE__->meta->alias_method(
+        __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method('sys' . $func)->body
         );
     }
@@ -1456,42 +1474,9 @@ INIT: {
 }
 
 
-
-package IO::Moose::Handle::Tie;
-
-use Moose;
-
-use Scalar::Util 'weaken';
-
-*Debug = \$IO::Moose::Handle::Debug;
-
-
-# Tie hook. Others are initialized by IO::Moose::Handle.
-sub TIEHANDLE {
-    warn "TIEHANDLE @_" if $Debug;
-
-    my ($class, $instance) = @_;
-
-    # tie object will be stored in scalar reference of main object
-    my $self = \$instance;
-
-    # weaken the real object, otherwise it won't be destroyed automatically
-    weaken $instance;
-
-    return bless $self => $class;
-}
-
-
-sub UNTIE {
-    warn "UNTIE @_" if $Debug;
-}
-
-
-sub DESTROY {
-    warn "DESTROY @_" if $Debug;
-}
-
-
+# Following workaround is moved to separate package because syscall.ph
+# pollutes namespace and we need keep IO::Moose::Handle clean because of
+# Pod::Coverage.
 
 package IO::Moose::Handle::Syscall;
 
@@ -1513,7 +1498,6 @@ if (defined &__NR_fsync and defined &__i386 and defined &_ASM_X86_64_UNISTD_H_) 
     }
     eval { require 'asm-i386/unistd.ph' };
 }
-
 
 
 1;

@@ -1,9 +1,9 @@
 ---
 name: IO-Moose
-version: 0.02
+version: 0.03
 author:
   - 'Piotr Roszatycki <dexter@debian.org>'
-abstract: Moose reimplementation of IO::Handle with improvements
+abstract: Moose reimplementation of IO::* with improvements
 license: perl
 resources:
   license: http://dev.perl.org/licenses/
@@ -16,13 +16,17 @@ requires:
 build_requires:
   Test::Unit::Lite: 0.09
 provides:
+  IO::Moose:
+    file: lib/IO/Moose.pm
+    version: 0.03
   IO::Moose::Handle:
     file: lib/IO/Moose/Handle.pm
-    version: 0.02
+    version: 0.03
   IO::Moose::Handle::Syscall:
     file: lib/IO/Moose/Handle.pm
-  IO::Moose::Handle::Tie:
-    file: lib/IO/Moose/Handle.pm
+  IO::Moose::Seekable:
+    file: lib/IO/Moose/Seekable.pm
+    version: 0.01
 generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

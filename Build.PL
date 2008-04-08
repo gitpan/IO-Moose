@@ -8,7 +8,6 @@ use warnings;
 
 my $build = Module::Build->new(
     module_name => 'IO::Moose',
-    dist_version_from => 'lib/IO/Moose/Handle.pm',
     dist_author => 'Piotr Roszatycki <dexter@debian.org>',
     license => 'perl',
     requires => {

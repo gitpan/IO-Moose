@@ -15,6 +15,3 @@ while (not $stdin->eof) {
     $stdout->print($line) if $line ne $prev;
     $prev = $line;
 }
-
-$stdin->close;
-$stdout->close;

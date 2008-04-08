@@ -6,7 +6,7 @@ WriteMakefile
           'INSTALLDIRS' => 'site',
           'NAME' => 'IO::Moose',
           'EXE_FILES' => [],
-          'VERSION_FROM' => 'lib/IO/Moose/Handle.pm',
+          'VERSION_FROM' => 'lib/IO/Moose.pm',
           'PREREQ_PM' => {
                            'Test::Unit::Lite' => '0.09',
                            'MooseX::GlobRef::Object' => '0.02',
