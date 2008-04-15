@@ -2,11 +2,11 @@
 
 package IO::Moose::Seekable;
 use 5.006;
-our $VERSION = 0.01;
+our $VERSION = 0.04;
 
 =head1 NAME
 
-IO::Moose::Handle - Moose reimplementation of IO::Seekable
+IO::Moose::Seekable - Moose reimplementation of IO::Seekable
 
 =head1 SYNOPSIS
 
@@ -42,7 +42,7 @@ exception on failure.
 
 =item *
 
-It doesn't export any constants.  Use Fcntl instead.
+It doesn't export any constants.  Use L<Fcntl> instead.
 
 =item *
 
@@ -59,13 +59,17 @@ use Moose::Role;
 
 
 use Exception::Base ':all',
+    '+ignore_package'     => [ __PACKAGE__ ],
     'Exception::IO'       => { isa => 'Exception::System' },
     'Exception::Fatal'    => { isa => 'Exception::Base' },
     'Exception::Argument' => { isa => 'Exception::Base' };
 
 
+use Scalar::Util 'blessed', 'reftype';
+
+
 # Use Fcntl for setpos
-eval { require Fcntl };
+BEGIN { eval { require Fcntl }; }
 
 
 # Debugging flag
@@ -74,7 +78,7 @@ our $Debug = 0;
 
 # Wrapper for CORE::seek
 sub seek {
-    warn "seek @_" if $Debug;
+    { no warnings; warn "seek @_" if $Debug; }
 
     my $self = shift;
 
@@ -82,64 +86,56 @@ sub seek {
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
-          ignore_package => __PACKAGE__,
           message => 'Usage: $io->seek(POS, WHENCE)'
-        if not blessed $self and not @_ == 2;
+        if not blessed $self or @_ != 2;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $status = try eval {
-        CORE::seek $hashref->{fh}, $_[0], $_[1];
+    my $status;
+    try eval {
+        $status = CORE::seek $hashref->{fh}, $_[0], $_[1];
     };
     if (catch my $e) {
         throw Exception::Fatal $e,
-              ignore_package => __PACKAGE__,
-              message => 'Cannot seek',
+              message => 'Cannot seek'
             if not defined $e->message;
-        throw $e
-              ignore_package => __PACKAGE__;
+        throw $e;
     }
     if (not $status) {
         throw Exception::IO
-              ignore_package => __PACKAGE__,
               message => 'Cannot seek';
     }
-    return $status;
+
+    return $self;
 }
 
 
 # Wrapper for CORE::sysseek
 sub sysseek {
-    warn "sysseek @_" if $Debug;
+    { no warnings; warn "sysseek @_" if $Debug; }
 
     my $self = shift;
 
-    # handle tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
     throw Exception::Argument
-          ignore_package => __PACKAGE__,
           message => 'Usage: $io->sysseek(POS, WHENCE)'
-        if not blessed $self and not @_ == 2;
+        if not blessed $self or @_ != 2;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $status = try eval {
-        CORE::sysseek $hashref->{fh}, $_[0], $_[1];
+    my $status;
+    try eval {
+        $status = CORE::sysseek $hashref->{fh}, $_[0], $_[1];
     };
     if (catch my $e) {
         throw Exception::Fatal $e,
-              ignore_package => __PACKAGE__,
-              message => 'Cannot sysseek',
+              message => 'Cannot sysseek'
             if not defined $e->message;
-        throw $e
-              ignore_package => __PACKAGE__;
+        throw $e;
     }
     if (not $status) {
         throw Exception::IO
-              ignore_package => __PACKAGE__,
               message => 'Cannot sysseek';
     }
     return $status;
@@ -148,7 +144,7 @@ sub sysseek {
 
 # Wrapper for CORE::tell
 sub tell {
-    warn "tell @_" if $Debug;
+    { no warnings; warn "tell @_" if $Debug; }
 
     my $self = shift;
 
@@ -156,23 +152,21 @@ sub tell {
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     throw Exception::Argument
-          ignore_package => __PACKAGE__,
           message => 'Usage: $io->tell()'
         if not blessed $self or @_ > 0;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $status = try eval {
-        CORE::tell $hashref->{fh};
+    my $status;
+    try eval {
+        $status = CORE::tell $hashref->{fh};
     };
     if (catch my $e) {
         throw Exception::Fatal $e,
-              ignore_package => __PACKAGE__,
-              message => 'Cannot tell',
+              message => 'Cannot tell'
             if not defined $e->message;
-        throw $e
-              ignore_package => __PACKAGE__;
+        throw $e;
     }
     return $status == 0 ? '0 but true' : $status;
 }
@@ -180,32 +174,27 @@ sub tell {
 
 # Pure Perl implementation
 sub getpos {
-    warn "getpos @_" if $Debug;
+    { no warnings; warn "getpos @_" if $Debug; }
 
     my $self = shift;
 
-    # handle tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
     throw Exception::Argument
-          ignore_package => __PACKAGE__,
           message => 'Usage: $io->getpos()'
         if not blessed $self or @_ > 0;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $pos = try eval {
-        $self->tell;
+    my $pos;
+    try eval {
+        $pos = $self->tell;
     };
 
     if (catch my $e) {
         throw Exception::Fatal $e,
-              ignore_package => __PACKAGE__,
-              message => 'Cannot getpos',
+              message => 'Cannot getpos'
             if not defined $e->message;
-        throw $e
-              ignore_package => __PACKAGE__;
+        throw $e;
     }
 
     return $pos;
@@ -214,42 +203,37 @@ sub getpos {
 
 # Pure Perl implementation
 sub setpos {
-    warn "setpos @_" if $Debug;
+    { no warnings; warn "setpos @_" if $Debug; }
 
     my $self = shift;
 
-    # handle tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
     throw Exception::Argument
-          ignore_package => __PACKAGE__,
           message => 'Usage: $io->setpos(POS)'
-        if not blessed $self and not @_ == 1;
+        if not blessed $self or @_ != 1;
 
     my ($pos) = @_;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $status = try eval {
-        $self->seek($pos, &Fcntl::SEEK_SET);
+    my $status;
+    try eval {
+        $status = $self->seek($pos, &Fcntl::SEEK_SET);
     };
 
     if (catch my $e) {
         throw Exception::Fatal $e,
-              ignore_package => __PACKAGE__,
-              message => 'Cannot getpos',
+              message => 'Cannot getpos'
             if not defined $e->message;
-        throw $e
-              ignore_package => __PACKAGE__;
+        throw $e;
     }
 
-    return '0 but true' if $status;
+    return $self;
 }
 
 
 INIT: {
-    foreach my $func (qw< tell >) {
+    foreach my $func (qw< tell seek >) {
         __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method($func)->body
         );
@@ -302,7 +286,7 @@ The SEEK_* constants can be imported from the L<Fcntl> module if you don't
 wish to use the numbers 0 1 or 2 in your code.  The SEEK_* constants are more
 portable.
 
-Returns 1 on success or throws an exception.
+Returns self object on success or throws an exception.
 
   use Fcntl 'SEEK_END';
   $file->seek(0, SEEK_END);
@@ -328,9 +312,14 @@ is implemented with B<tell> method.
 
 =item setpos(I<pos>)
 
-Goes to the position stored previously with B<getpos> method.  Returns "0 but
-true" on success, throws an exception on failure.  This method is implemented
+Goes to the position stored previously with B<getpos> method.  Returns this
+object on success, throws an exception on failure.  This method is implemented
 with B<seek> method.
+
+  $pos = $file->getpos;
+  $file->print("something\n");
+  $file->setpos($pos);
+  print $file->readline;  # prints "something"
 
 =back
 

@@ -1,4 +1,21 @@
 ------------------------------------------------------------------------
+0.04 | Piotr Roszatycki <dexter@debian.org> | 2008-04-15
+
+New:
+
+* New module IO::Moose::File.
+* IO::Moose::Seekable SEEK tied function.
+
+Changes:
+
+* Requires MooseX::GlobRef::Object >= 0.0203, Exception::Base >= 0.14.
+* More methods returns self object.
+
+Fixes:
+
+* Correct POD for IO::Moose::Seekable and IO::Moose::Handle.
+
+------------------------------------------------------------------------
 0.03 | Piotr Roszatycki <dexter@debian.org> | 2008-04-08
 
 * New module IO::Moose and IO::Moose::Seekable.

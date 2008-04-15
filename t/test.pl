@@ -11,7 +11,7 @@ BEGIN {
     chdir dirname(__FILE__) or die "$!";
     chdir '..' or die "$!";
 
-    unshift @INC, map { /(.*)/; $1 } split(/:/, $ENV{PERL5LIB}) if ${^TAINT};
+    unshift @INC, map { /(.*)/; $1 } split(/:/, $ENV{PERL5LIB}) if defined $ENV{PERL5LIB} and ${^TAINT};
 
     my $cwd = ${^TAINT} ? do { local $_=getcwd; /(.*)/; $1 } : '.';
     unshift @INC, File::Spec->catdir($cwd, 'inc');
@@ -20,7 +20,9 @@ BEGIN {
 
 use Test::Unit::Lite;
 
-use Exception::Base 'Exception::Warning';
+use Exception::Base
+    max_arg_nums => 0, verbosity => 4,
+    'Exception::Warning';
 
 local $SIG{__WARN__} = sub { $@ = $_[0]; Exception::Warning->throw(message => 'Warning', ignore_level => 1) };
 

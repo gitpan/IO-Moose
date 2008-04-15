@@ -12,10 +12,10 @@ my $build = Module::Build->new(
     license => 'perl',
     requires => {
         'perl'                    => 5.006,
-        'Exception::Base'         => 0.12,
-        'Exception::System'       => 0.07,
+        'Exception::Base'         => 0.14,
+        'Exception::System'       => 0.0801,
         'File::Stat::Moose'       => 0,
-	'MooseX::GlobRef::Object' => 0.02,
+        'MooseX::GlobRef::Object' => 0.0203,
     },
     optional => {
     },

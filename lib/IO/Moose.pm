@@ -2,7 +2,7 @@
 
 package IO::Moose;
 use 5.006;
-our $VERSION = 0.03;
+our $VERSION = 0.04;
 
 =head1 NAME
 
@@ -58,7 +58,7 @@ use Exception::Base
 sub import {
     shift;
 
-    my @l = @_ ? @_ : qw< Handle >;
+    my @l = @_ ? @_ : qw< Handle File >;
 
     eval join("", map { "require IO::Moose::" . (/(\w+)/)[0] . ";\n" } @l)
         or throw Exception::Fatal::Compilation

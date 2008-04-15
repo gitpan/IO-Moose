@@ -1,6 +1,6 @@
 ---
 name: IO-Moose
-version: 0.03
+version: 0.04
 author:
   - 'Piotr Roszatycki <dexter@debian.org>'
 abstract: Moose reimplementation of IO::* with improvements
@@ -8,25 +8,28 @@ license: perl
 resources:
   license: http://dev.perl.org/licenses/
 requires:
-  Exception::Base: 0.12
-  Exception::System: 0.07
+  Exception::Base: 0.14
+  Exception::System: 0.0801
   File::Stat::Moose: 0
-  MooseX::GlobRef::Object: 0.02
+  MooseX::GlobRef::Object: 0.0203
   perl: 5.006
 build_requires:
   Test::Unit::Lite: 0.09
 provides:
   IO::Moose:
     file: lib/IO/Moose.pm
-    version: 0.03
+    version: 0.04
+  IO::Moose::File:
+    file: lib/IO/Moose/File.pm
+    version: 0.04
   IO::Moose::Handle:
     file: lib/IO/Moose/Handle.pm
-    version: 0.03
+    version: 0.04
   IO::Moose::Handle::Syscall:
     file: lib/IO/Moose/Handle.pm
   IO::Moose::Seekable:
     file: lib/IO/Moose/Seekable.pm
-    version: 0.01
+    version: 0.04
 generated_by: Module::Build version 0.2808
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

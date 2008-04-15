@@ -6,6 +6,7 @@ eg/slurp.pl
 eg/uniq_func.pl
 eg/uniq_oo.pl
 lib/IO/Moose.pm
+lib/IO/Moose/File.pm
 lib/IO/Moose/Handle.pm
 lib/IO/Moose/Seekable.pm
 Makefile.PL
@@ -18,6 +19,7 @@ t/pod.t
 t/pod_coverage.t
 t/test.pl
 t/test_tainted.pl
+t/tlib/IO/Moose/FileTest.pm
 t/tlib/IO/Moose/HandleTest.pm
 t/tlib/IO/Moose/IO_MooseTest_Bad.pm
 t/tlib/IO/Moose/IO_MooseTest_Good.pm

@@ -9,10 +9,10 @@ WriteMakefile
           'VERSION_FROM' => 'lib/IO/Moose.pm',
           'PREREQ_PM' => {
                            'Test::Unit::Lite' => '0.09',
-                           'MooseX::GlobRef::Object' => '0.02',
+                           'MooseX::GlobRef::Object' => '0.0203',
                            'File::Stat::Moose' => 0,
-                           'Exception::System' => '0.07',
-                           'Exception::Base' => '0.12'
+                           'Exception::System' => '0.0801',
+                           'Exception::Base' => '0.14'
                          }
         )
 ;

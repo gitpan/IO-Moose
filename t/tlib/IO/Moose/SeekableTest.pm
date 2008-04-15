@@ -19,18 +19,30 @@ BEGIN { eval "use Fcntl 'SEEK_SET', 'SEEK_CUR', 'SEEK_END';"; }
     package IO::Moose::SeekableTest::Test1;
 
     use Moose;
-    use Scalar::Util 'reftype';
 
     extends 'MooseX::GlobRef::Object';
 
     with 'IO::Moose::Seekable';
+
+    use Scalar::Util 'weaken';
     
     sub fdopen {
 	my $self = shift;
 	my ($fd, $mode) = @_;
 	my $hashref = ${*$self};
 	$mode = "<" unless $mode;
-	CORE::open $hashref->{fh}, "$mode&", *$fd;
+	my $fileno = CORE::fileno $fd;
+	CORE::open $hashref->{fh}, "$mode&=$fileno";
+        my $newfd = CORE::fileno $hashref->{fh};
+        CORE::open *$self, "$mode&=$newfd";
+	tie *$self, blessed $self, $self;
+    }
+
+    sub TIEHANDLE {
+        my ($class, $instance) = @_;
+	my $self = \$instance;
+	weaken $instance;
+	return bless $self => $class;
     }
 
     sub close {
@@ -125,17 +137,60 @@ sub test_seek {
     $self->assert_equals('p', $c1);  # <p>ackage
 
     my $c2 = $obj->seek(2, eval "SEEK_SET");
-    $self->assert_equals(1, $c2);
+    $self->assert_not_null($c2);
     my $c3 = $obj->getc;
     $self->assert_equals('c', $c3);  # pa<c>kage
 
     my $c4 = $obj->seek(2, eval "SEEK_CUR");
-    $self->assert_equals(1, $c4);
+    $self->assert_not_null($c4);
     my $c5 = $obj->getc;
     $self->assert_equals('g', $c5);  # packa<g>e
 
     my $c6 = $obj->seek(-2, eval "SEEK_END");
-    $self->assert_equals(1, $c6);
+    $self->assert_not_null($c6);
+    my $c7 = $obj->getc;
+    $self->assert_equals(';', $c7);  # 1<;>\n
+
+    $obj->close;
+
+    try eval { $obj->tell; };
+    catch my $e1;
+    $self->assert_equals('Exception::Fatal', ref $e1);
+
+    # tear down
+    close $fh_in;
+}
+
+sub test_seek_tied {
+    my $self = shift;
+
+    # set up
+    open $fh_in, '<', $filename_in or throw Exception::IO;
+
+    my $obj = IO::Moose::SeekableTest::Test1->new;
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
+    $obj->fdopen($fh_in);
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
+    $self->assert_equals('GLOB', reftype $obj);
+    $self->assert_not_null($obj->fileno);
+
+    my $c1 = $obj->getc;
+    $self->assert_equals('p', $c1);  # <p>ackage
+
+    my $c2 = seek $obj, 2, eval "SEEK_SET";
+    $self->assert_not_null($c2);
+    my $c3 = $obj->getc;
+    $self->assert_equals('c', $c3);  # pa<c>kage
+
+    my $c4 = seek $obj, 2, eval "SEEK_CUR";
+    $self->assert_not_null($c4);
+    my $c5 = $obj->getc;
+    $self->assert_equals('g', $c5);  # packa<g>e
+
+    my $c6 = seek $obj, -2, eval "SEEK_END";
+    $self->assert_not_null($c6);
     my $c7 = $obj->getc;
     $self->assert_equals(';', $c7);  # 1<;>\n
 
@@ -153,7 +208,7 @@ sub test_seek_fail {
     my $self = shift;
 
     # set up
-    open $fh_out, '<&=1' or throw Exception::IO;
+    open $fh_out, '<&=1' or return;
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
@@ -259,6 +314,42 @@ sub test_tell {
     close $fh_in;
 }
 
+sub test_tell_tied {
+    my $self = shift;
+
+    # set up
+    open $fh_in, '<', $filename_in or throw Exception::IO;
+
+    my $obj = IO::Moose::SeekableTest::Test1->new;
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
+    $obj->fdopen($fh_in);
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
+    $self->assert_equals('GLOB', reftype $obj);
+    $self->assert_not_null($obj->fileno);
+
+    my $c1 = tell $obj;
+    $self->assert($c1, '$obj->tell');
+    $self->assert_num_equals(0, $c1);
+
+    my $c2 = $obj->readline;
+    $self->assert_not_equals(0, length $c2);
+    
+    my $c3 = tell $obj;
+    $self->assert_not_equals(0, $c3);
+    $self->assert_equals(length $c2, $c3);
+
+    $obj->close;
+
+    try eval { tell $obj; };
+    catch my $e1;
+    $self->assert_equals('Exception::Fatal', ref $e1);
+
+    # tear down
+    close $fh_in;
+}
+
 sub test_getpos_setpos {
     my $self = shift;
 
@@ -315,7 +406,7 @@ sub test_getpos_fail {
     my $self = shift;
 
     # set up
-    open $fh_out, '<&=1' or throw Exception::IO;
+    open $fh_out, '<&=1' or return;
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
