@@ -1,3 +1,10 @@
+0.0401 | Piotr Roszatycki <dexter@debian.org> | 2008-04-20
+
+Changes:
+
+* Removed indirect notation from POD and code.
+* Requires Exception::Base >= 0.15.
+
 ------------------------------------------------------------------------
 0.04 | Piotr Roszatycki <dexter@debian.org> | 2008-04-15
 

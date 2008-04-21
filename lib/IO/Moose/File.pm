@@ -2,16 +2,16 @@
 
 package IO::Moose::File;
 use 5.006;
-our $VERSION = 0.04;
+our $VERSION = 0.04_01;
 
 =head1 NAME
 
-IO::Moose::File - Moose reimplementation of IO::File
+IO::Moose::File - Reimplementation of IO::File with improvements
 
 =head1 SYNOPSIS
 
   use IO::Moose::File;
-  $file = new IO::Moose::File filename=>"/etc/passwd";
+  $file = IO::Moose::File->new( filename=>"/etc/passwd" );
   @passwd = $file->getlines;
 
 =head1 DESCRIPTION
@@ -39,6 +39,8 @@ It doesn't export any constants.  Use L<Fcntl> instead.
 It is pure-Perl implementation.
 
 =back
+
+=for readme stop
 
 =cut
 
@@ -141,38 +143,38 @@ sub new_tmpfile {
 
     my $status;
     try eval {
-	if ($^V ge v5.8) {
-    	    { no warnings; warn "CORE::open($hashref->{fh}, $hashref->{mode}, undef)" if $Debug; }
-    	    $status = CORE::open($hashref->{fh}, $hashref->{mode}, undef);
-	}
-	else {
-	    # compatibility with Perl 5.6 which doesn't support anonymous open
-	    require File::Temp;
-	    $status = $hashref->{fh} = File::Temp->tmpfile;
-	}
+        if ($^V ge v5.8) {
+            { no warnings; warn "CORE::open($hashref->{fh}, $hashref->{mode}, undef)" if $Debug; }
+            $status = CORE::open($hashref->{fh}, $hashref->{mode}, undef);
+        }
+        else {
+            # compatibility with Perl 5.6 which doesn't support anonymous open
+            require File::Temp;
+            $status = $hashref->{fh} = File::Temp->tmpfile;
+        }
     };
 
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot new_tmpfile'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot new_tmpfile';
     }
 
     # clone standard handler for tied handler
     untie *$self;
     CORE::close *$self;
-    if ($] < 5.008) {
+    if ($^V ge v5.8) {
+        CORE::open *$self, "$hashref->{mode}&", $hashref->{fh};
+    }
+    else {
         # Compatibility with Perl 5.6
         my $newfd = CORE::fileno $hashref->{fh};
         CORE::open *$self, "$hashref->{mode}&=$newfd";
-    }
-    else {
-        CORE::open *$self, "$hashref->{mode}&", $hashref->{fh};
     }
     tie *$self, blessed $self, $self;
 
@@ -189,7 +191,7 @@ sub open {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->open(FILENAME [,MODE [,PERMS]]) or $fh->open(FILENAME, IOLAYERS)'
         if not blessed $self or @_ < 1 || @_ > 3 || (@_ == 3 and defined $_[1] and $_[1] =~ /:/);
 
@@ -221,14 +223,14 @@ sub open {
 
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot open'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot open';
     }
 
@@ -242,13 +244,13 @@ sub open {
     # clone standard handler for tied handler
     untie *$self;
     CORE::close *$self;
-    if ($] < 5.008) {
+    if ($^V ge v5.8) {
+        CORE::open *$self, "$mode&", $hashref->{fh};
+    }
+    else {
         # Compatibility with Perl 5.6
         my $newfd = CORE::fileno $hashref->{fh};
         CORE::open *$self, "$mode&=$newfd";
-    }
-    else {
-        CORE::open *$self, "$mode&", $hashref->{fh};
     }
     tie *$self, blessed $self, $self;
 
@@ -265,7 +267,7 @@ sub binmode {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->binmode([LAYER])'
         if not blessed $self or @_ > 1;
 
@@ -288,14 +290,14 @@ sub binmode {
 
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot binmode'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot binmode';
     }
 
@@ -304,11 +306,15 @@ sub binmode {
 
 
 INIT: {
+    # Aliasing tie hooks to real functions
     foreach my $func (qw< open binmode >) {
         __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method($func)->body
         );
     }
+
+    # Make immutable finally
+    __PACKAGE__->meta->make_immutable;
 }
 
 
@@ -316,8 +322,6 @@ INIT: {
 
 
 __END__
-
-=for readme stop
 
 =head1 BASE CLASSES
 
@@ -339,7 +343,7 @@ L<IO::Moose::Seekable>
 
 =back
 
-=head1 TYPE CONSTRAINTS
+=head1 CONSTRAINTS
 
 =over
 
@@ -354,7 +358,7 @@ Represents PerlIO layers string (i.e. ":crlf").
 
 =back
 
-=head1 FIELDS
+=head1 ATTRIBUTES
 
 =over
 
@@ -390,10 +394,10 @@ Creates an object.  If B<filename> is defined, the B<open> method is called;
 if the open fails, the object is destroyed.  Otherwise, it is returned to the
 caller.
 
-  $io = new IO::Moose::File;
+  $io = IO::Moose::File->new;
   $io->open("/etc/passwd");
 
-  $io = new IO::Moose::File filename=>"/var/log/perl.log", mode=>"a";
+  $io = IO::Moose::File->new( filename=>"/var/log/perl.log", mode=>"a" );
 
 =item new_tmpfile
 
@@ -403,7 +407,7 @@ Otherwise, it is returned to the caller.
 
 It takes no parameters.
 
-  $io = new_tmpfile IO::Moose::File;
+  $io = IO::Moose::File->new_tmpfile;
   $pos = $io->getpos;  # save position
   $io->say("foo");
   $io->setpos($pos);   # rewind
@@ -422,14 +426,14 @@ C-style mode string, it uses core B<open> function.  If mode is decimal (it
 can be O_XXX constant from standard module L<Fcntl>) it uses core B<sysopen>
 function with default permissions set to 0666.
 
-  $io = new IO::Moose::File;
+  $io = IO::Moose::File->new;
   $io->open("/etc/passwd");
 
-  $io = new IO::Moose::File;
+  $io = IO::Moose::File->new;
   $io->open("/var/tmp/output", "w");
 
   use Fcntl;
-  $io = new IO::Moose::File;
+  $io = IO::Moose::File->new;
   $io->open("/etc/hosts", O_RDONLY);
 
 =item binmode([I<layer>])
@@ -445,10 +449,10 @@ In general, b<binmode> should be called after b<open>but before any I/O is done 
 
 Returns self object.
 
-  $io = new IO::Moose::File filename => "/tmp/picture.png", mode => "w";
+  $io = IO::Moose::File->new( filename => "/tmp/picture.png", mode => "w" );
   $io->binmode;
 
-  $io = new IO::Moose::File filename => "/var/tmp/fromdos.txt";
+  $io = IO::Moose::File->new( filename => "/var/tmp/fromdos.txt" );
   $io->binmode(":crlf");
 
 =back

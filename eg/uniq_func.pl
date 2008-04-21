@@ -6,8 +6,8 @@ use IO::Moose::Handle;
 
 $IO::Moose::Handle::Debug = $ENV{DEBUG};
 
-my $stdin  = new_from_fd IO::Moose::Handle \*STDIN,  '<';
-my $stdout = new_from_fd IO::Moose::Handle \*STDOUT, '>';
+my $stdin  = IO::Moose::Handle->new_from_fd( \*STDIN,  '<' );
+my $stdout = IO::Moose::Handle->new_from_fd( \*STDOUT, '>' );
 
 my $prev = '';
 while (not eof $stdin) {

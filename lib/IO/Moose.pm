@@ -2,19 +2,17 @@
 
 package IO::Moose;
 use 5.006;
-our $VERSION = 0.04;
+our $VERSION = 0.04_01;
 
 =head1 NAME
 
-IO::Moose - Moose reimplementation of IO::* with improvements
+IO::Moose - Reimplementation of IO::* with improvements
 
 =head1 SYNOPSIS
 
   use IO::Moose qw< Handle File >;  # loads IO::Moose::* modules
 
-  $fh = new IO::Moose::File '/etc/passwd';
-  $passwd = $fh->slurp;
-  $fh->close;
+  $passwd = IO::Moose::File->new( filename=>'/etc/passwd' )->slurp;
 
 =head1 DESCRIPTION
 
@@ -47,13 +45,17 @@ It also implements additional methods like B<say>, B<slurp>.
 
 It is pure-Perl implementation.
 
+=for readme stop
+
 =back
 
 =cut
 
 
 use Exception::Base
+    '+ignore_package' => [ __PACKAGE__ ],
     'Exception::Fatal::Compilation' => { isa => 'Exception::Base' };
+
 
 sub import {
     shift;
@@ -61,8 +63,7 @@ sub import {
     my @l = @_ ? @_ : qw< Handle File >;
 
     eval join("", map { "require IO::Moose::" . (/(\w+)/)[0] . ";\n" } @l)
-        or throw Exception::Fatal::Compilation
-              ignore_package => __PACKAGE__;
+        or Exception::Fatal::Compilation->throw( message => __PACKAGE__ );
 }
 
 
@@ -71,7 +72,15 @@ sub import {
 
 __END__
 
-=for readme stop
+=head1 EXCEPTIONS
+
+=over
+
+=item Exception::Fatal::Compilation
+
+Thrown whether compilation error is occurred.
+
+=back 
 
 =head1 IMPORTS
 
@@ -89,6 +98,8 @@ If I<modules> list is empty, it loads following modules at default:
 =over
 
 =item * IO::Moose::Handle
+
+=item * IO::Moose::File
 
 =back
 

@@ -6,14 +6,13 @@ use warnings;
 use base 'Test::Unit::TestCase';
 
 use IO::Moose::Handle;
-use Exception::Base ':all',
-    'Exception::IO' => { isa => 'Exception::System' };
+use Exception::Base ':all';
 
 use File::Temp 'tempfile';
 
 use Scalar::Util 'reftype';
 
-BEGIN { eval "use Fcntl 'SEEK_SET', 'SEEK_CUR', 'SEEK_END';"; }
+BEGIN { eval "use Fcntl 'SEEK_SET', 'SEEK_CUR', 'SEEK_END'"; }
 
 {
     package IO::Moose::SeekableTest::Test1;
@@ -122,7 +121,7 @@ sub test_seek {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
@@ -165,7 +164,7 @@ sub test_seek_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
@@ -233,7 +232,7 @@ sub test_sysseek {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
@@ -282,7 +281,7 @@ sub test_tell {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
@@ -318,7 +317,7 @@ sub test_tell_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);
@@ -354,7 +353,7 @@ sub test_getpos_setpos {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::SeekableTest::Test1->new;
     $self->assert_not_null($obj);

@@ -6,8 +6,7 @@ use warnings;
 use base 'Test::Unit::TestCase';
 
 use IO::Moose::Handle;
-use Exception::Base ':all',
-    'Exception::IO' => { isa => 'Exception::System' };
+use Exception::Base ':all';
 
 use File::Temp 'tempfile';
 

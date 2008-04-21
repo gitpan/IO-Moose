@@ -12,7 +12,7 @@ WriteMakefile
                            'MooseX::GlobRef::Object' => '0.0203',
                            'File::Stat::Moose' => 0,
                            'Exception::System' => '0.0801',
-                           'Exception::Base' => '0.14'
+                           'Exception::Base' => '0.15'
                          }
         )
 ;

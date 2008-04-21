@@ -1,12 +1,10 @@
 NAME
-    IO::Moose - Moose reimplementation of IO::* with improvements
+    IO::Moose - Reimplementation of IO::* with improvements
 
 SYNOPSIS
       use IO::Moose qw< Handle File >;  # loads IO::Moose::* modules
 
-      $fh = new IO::Moose::File '/etc/passwd';
-      $passwd = $fh->slurp;
-      $fh->close;
+      $passwd = IO::Moose::File->new( filename=>'/etc/passwd' )->slurp;
 
 DESCRIPTION
     IO::Moose provides a simple mechanism to load several modules in one go.

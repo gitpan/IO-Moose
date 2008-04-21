@@ -2,11 +2,11 @@
 
 package IO::Moose::Seekable;
 use 5.006;
-our $VERSION = 0.04;
+our $VERSION = 0.04_01;
 
 =head1 NAME
 
-IO::Moose::Seekable - Moose reimplementation of IO::Seekable
+IO::Moose::Seekable - Reimplementation of IO::Seekable with improvements
 
 =head1 SYNOPSIS
 
@@ -16,7 +16,7 @@ IO::Moose::Seekable - Moose reimplementation of IO::Seekable
   with 'IO::Moose::Seekable';
 
   package main;
-  $stdin = new My::IO fd=>\*STDIN, mode=>'r';
+  $stdin = My::IO->new( fd=>\*STDIN, mode=>'r' );
   $stdin->slurp;
   print $stdin->tell, "\n";
 
@@ -50,6 +50,8 @@ It is pure-Perl implementation.
 
 =back
 
+=for readme stop
+
 =cut
 
 
@@ -60,9 +62,7 @@ use Moose::Role;
 
 use Exception::Base ':all',
     '+ignore_package'     => [ __PACKAGE__ ],
-    'Exception::IO'       => { isa => 'Exception::System' },
-    'Exception::Fatal'    => { isa => 'Exception::Base' },
-    'Exception::Argument' => { isa => 'Exception::Base' };
+    'Exception::Fatal'    => { isa => 'Exception::Base' };
 
 
 use Scalar::Util 'blessed', 'reftype';
@@ -85,7 +85,7 @@ sub seek {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->seek(POS, WHENCE)'
         if not blessed $self or @_ != 2;
 
@@ -97,13 +97,13 @@ sub seek {
         $status = CORE::seek $hashref->{fh}, $_[0], $_[1];
     };
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot seek'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot seek';
     }
 
@@ -117,7 +117,7 @@ sub sysseek {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->sysseek(POS, WHENCE)'
         if not blessed $self or @_ != 2;
 
@@ -129,13 +129,13 @@ sub sysseek {
         $status = CORE::sysseek $hashref->{fh}, $_[0], $_[1];
     };
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot sysseek'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot sysseek';
     }
     return $status;
@@ -151,7 +151,7 @@ sub tell {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->tell()'
         if not blessed $self or @_ > 0;
 
@@ -163,7 +163,7 @@ sub tell {
         $status = CORE::tell $hashref->{fh};
     };
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot tell'
             if not defined $e->message;
         throw $e;
@@ -178,7 +178,7 @@ sub getpos {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->getpos()'
         if not blessed $self or @_ > 0;
 
@@ -191,7 +191,7 @@ sub getpos {
     };
 
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot getpos'
             if not defined $e->message;
         throw $e;
@@ -207,7 +207,7 @@ sub setpos {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->setpos(POS)'
         if not blessed $self or @_ != 1;
 
@@ -222,7 +222,7 @@ sub setpos {
     };
 
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot getpos'
             if not defined $e->message;
         throw $e;
@@ -246,8 +246,6 @@ INIT: {
 
 __END__
 
-=for readme stop
-
 =head1 BASE CLASSES
 
 =over 2
@@ -255,6 +253,16 @@ __END__
 =item *
 
 L<Moose::Role>
+
+=back
+
+=head1 EXCEPTIONS
+
+=over
+
+=item Exception::Fatal
+
+Thrown whether fatal error is occurred by core function.
 
 =back
 

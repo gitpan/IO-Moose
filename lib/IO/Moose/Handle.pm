@@ -2,25 +2,25 @@
 
 package IO::Moose::Handle;
 use 5.006;
-our $VERSION = 0.04;
+our $VERSION = 0.04_01;
 
 =head1 NAME
 
-IO::Moose::Handle - Moose reimplementation of IO::Handle with improvements
+IO::Moose::Handle - Reimplementation of IO::Handle with improvements
 
 =head1 SYNOPSIS
 
   use IO::Moose::Handle;
-  
-  $fh = new IO::Moose::Handle;
+
+  $fh = IO::Moose::Handle->new;
   $fh->fdopen(fileno(STDIN));
   print $fh->getline;
   $file = $fh->slurp;
   $fh->close;
-  
-  $fh = fdopen IO::Moose::Handle \*STDERR, '>';
-  autoflush $fh 1;
-  say $fh 'Some text';
+
+  $fh = IO::Moose::Handle->fdopen( \*STDERR, '>' );
+  $fh->autoflush(1);
+  $fh->say('Some text');
   undef $fh;  # calls close at DESTROY
 
 =head1 DESCRIPTION
@@ -51,6 +51,8 @@ It also implements additional methods like B<say>, B<slurp>.
 =item *
 
 It is pure-Perl implementation.
+
+=for readme stop
 
 =back
 
@@ -126,13 +128,11 @@ has $_ =>
 
 use Exception::Base ':all',
     '+ignore_package'     => [ __PACKAGE__, qr/^Moose::/, qr/^Class::MOP::/ ],
-    'Exception::IO'       => { isa => 'Exception::System' },
-    'Exception::Fatal'    => { isa => 'Exception::Base' },
-    'Exception::Argument' => { isa => 'Exception::Base' };
+    'Exception::Fatal'    => { isa => 'Exception::Base' };
 
 
 use Scalar::Util 'blessed', 'reftype', 'weaken', 'looks_like_number';
-use Symbol 'qualify';
+use Symbol       'qualify';
 
 use File::Stat::Moose;
 
@@ -189,7 +189,7 @@ sub fdopen {
     { no warnings; { no warnings; warn "fdopen @_" if $Debug; } }
 
     my $self = shift;
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: ' . __PACKAGE__ . '->fdopen(FD, [MODE])'
         if @_ < 1 || @_ > 2;
 
@@ -206,8 +206,8 @@ sub fdopen {
         $fd = $self->_set_fd($fd);
         $mode = defined $mode ? $self->_set_mode($mode) : $self->_clear_mode;
 
-        # compatibility with Perl 5.6 which doesn't accept "&" in mode
-        if ($] < 5.008) {
+        if ($^V lt v5.8) {
+            # compatibility with Perl 5.6 which doesn't accept "&" in mode
             if (blessed $fd and $fd->isa(__PACKAGE__)) {
                 $fd = $fd->fileno;
             } elsif (ref $fd) {
@@ -243,14 +243,14 @@ sub fdopen {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot fdopen'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot fdopen';
     }
 
@@ -259,13 +259,13 @@ sub fdopen {
     # clone standard handler for tied handler
     untie *$self;
     CORE::close *$self;
-    if ($] < 5.008) {
+    if ($^V ge v5.8) {
+        CORE::open *$self, "$mode&", $hashref->{fh};
+    }
+    else {
         # Compatibility with Perl 5.6
         my $newfd = CORE::fileno $hashref->{fh};
         CORE::open *$self, "$mode&=$newfd";
-    }
-    else {
-        CORE::open *$self, "$mode&", $hashref->{fh};
     }
     tie *$self, blessed $self, $self;
 
@@ -282,7 +282,7 @@ sub close {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->close()'
         if not blessed $self;
 
@@ -291,7 +291,7 @@ sub close {
 
     if (not CORE::close $hashref->{fh}) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot close';
     }
 
@@ -315,7 +315,7 @@ sub eof {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->eof()'
         if not blessed $self;
 
@@ -327,7 +327,7 @@ sub eof {
         $status = CORE::eof $hashref->{fh};
     };
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot eof'
             if not defined $e->message;
         throw $e;
@@ -345,7 +345,7 @@ sub fileno {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->fileno()'
         if not blessed $self;
 
@@ -362,7 +362,7 @@ sub opened {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->opened()'
         if not blessed $self or @_ > 0;
 
@@ -382,7 +382,7 @@ sub print {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->print(ARGS)'
         if not blessed $self;
 
@@ -410,14 +410,14 @@ sub print {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot print'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot print';
     }
 
@@ -434,7 +434,7 @@ sub printf {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->printf(FMT, [ARGS])'
         if not ref $self;
 
@@ -454,14 +454,14 @@ sub printf {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot printf'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot printf';
     }
 
@@ -475,7 +475,7 @@ sub write {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->write(BUF [, LEN [, OFFSET]])'
         if not blessed $self or @_ > 3 || @_ < 1;
 
@@ -500,14 +500,14 @@ sub write {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot write'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot write';
     }
 
@@ -521,7 +521,7 @@ sub format_write {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->format_write([FORMAT_NAME])'
         if not blessed $self or @_ > 1;
 
@@ -557,14 +557,14 @@ sub format_write {
     }
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot format_write'
             if not defined $e->message;
         throw $e;
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot format_write';
     }
 
@@ -581,7 +581,7 @@ sub readline {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->readline()'
         if not blessed $self or @_ > 0;
 
@@ -647,14 +647,14 @@ sub readline {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot readline'
             if not defined $e->message;
         throw $e;
     }
     if (not $status and $!) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot readline';
     }
 
@@ -683,9 +683,9 @@ sub getline {
         $line = $self->readline(@_);
     };
     if (catch my $e) {
-        throw $e message => 'Usage: $io->getline()'
+        throw $e => message => 'Usage: $io->getline()'
             if $e->isa('Exception::Argument');
-        throw $e message => 'Cannot getline'
+        throw $e => message => 'Cannot getline'
             if $e->isa('Exception::Fatal') or $e->isa('Exception::IO');
     }
 
@@ -699,7 +699,7 @@ sub getlines {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Can\'t call $io->getlines in a scalar context, use $io->getline'
         if not wantarray;
 
@@ -707,9 +707,9 @@ sub getlines {
         $self->readline(@_);
     } ];
     if (catch my $e) {
-        throw $e message => 'Usage: $io->getlines()'
+        throw $e => message => 'Usage: $io->getlines()'
             if $e->isa('Exception::Argument');
-        throw $e message => 'Cannot getlines'
+        throw $e => message => 'Cannot getlines'
             if $e->isa('Exception::Fatal') or $e->isa('Exception::IO');
     }
 
@@ -723,7 +723,7 @@ sub ungetc {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->ungetc(ORD)'
         if not blessed $self or @_ != 1 or not looks_like_number $_[0];
 
@@ -748,7 +748,7 @@ sub sysread {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->sysread(BUF, LEN [, OFFSET])'
         if not ref $self or @_ < 2 or @_ > 3;
 
@@ -761,14 +761,14 @@ sub sysread {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot sysread'
             if not defined $e->message;
         throw $e;
     }
     if (not defined $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot sysread';
     }
     if (defined $_[0] and $hashref->{untaint}) {
@@ -788,7 +788,7 @@ sub syswrite {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->syswrite(BUF [, LEN [, OFFSET]])'
         if not ref $self or @_ < 1 or @_ > 3;
 
@@ -806,14 +806,14 @@ sub syswrite {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot syswrite'
             if not defined $e->message;
         throw $e;
     }
     if (not defined $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot syswrite';
     }
     return $status;
@@ -829,7 +829,7 @@ sub getc {
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->getc()'
         if not blessed $self or @_ > 0;
 
@@ -848,14 +848,14 @@ sub getc {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot getc'
             if not defined $e->message;
         throw $e;
     }
     if (not defined $char and $! and $! != Errno::EBADF) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot getc';
     }
 
@@ -883,9 +883,9 @@ sub say {
         $self->print(@_, "\n");
     };
     if (catch my $e) {
-        throw $e message => 'Usage: $io->say(ARGS)'
+        throw $e => message => 'Usage: $io->say(ARGS)'
             if $e->isa('Exception::Argument');
-        throw $e message => 'Cannot say'
+        throw $e => message => 'Cannot say'
             if $e->isa('Exception::Fatal') or $e->isa('Exception::IO');
     }
 
@@ -899,7 +899,7 @@ sub slurp {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->slurp() or ' . __PACKAGE__ . '->slurp(FD)'
         if (not blessed $self and @_ != 1) or (blessed $self and @_ > 0);
 
@@ -931,7 +931,7 @@ sub slurp {
         }
     };
     if (catch my $e) {
-        throw $e message => 'Cannot slurp';
+        throw $e => message => 'Cannot slurp';
     }
 
     return $wantarray ? @lines : $string;
@@ -944,7 +944,7 @@ sub truncate {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->truncate(LEN)'
         if not ref $self or @_ != 1;
 
@@ -957,14 +957,14 @@ sub truncate {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot truncate'
             if not defined $e->message;
         throw $e;
     }
     if (not defined $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot truncate';
     }
 
@@ -978,7 +978,7 @@ sub stat {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->stat()'
         if not ref $self or @_ > 0;
 
@@ -991,7 +991,7 @@ sub stat {
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot stat'
             if not defined $e->message;
         throw $e;
@@ -1006,7 +1006,7 @@ sub error {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->error()'
         if not blessed $self or @_ > 0;
 
@@ -1028,7 +1028,7 @@ sub clearerr {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->clearerr()'
         if not blessed $self or @_ > 0;
 
@@ -1050,7 +1050,7 @@ sub sync {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->sync()'
         if not blessed $self or @_ > 0;
 
@@ -1069,20 +1069,20 @@ sub sync {
             $status = File::Sync::fsync($hashref->{fh});
         }
         else {
-            throw Exception::Fatal
-    	    message => 'Unimplemented: requires syscall.ph or IO::Handle or File::Sync';
+            throw 'Exception::Fatal' =>
+            message => 'Unimplemented: requires syscall.ph or IO::Handle or File::Sync';
         }
     };
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot sync'
             if not defined $e->message;
         throw $e;
     }
     if (not defined $status or $status != 0) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot sync';
     }
 
@@ -1096,7 +1096,7 @@ sub flush {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->flush()'
         if not blessed $self or @_ > 0;
 
@@ -1115,17 +1115,17 @@ sub flush {
 
     ($|, $\) = @var;
     select $oldfh;
-    
+
     if (catch my $e) {
         $hashref->{error} = 1;
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot flush'
             if not defined $e->message;
         throw $e;
     }
     if (not defined $status) {
         $hashref->{error} = 1;
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot flush';
     }
 
@@ -1156,9 +1156,9 @@ sub printflush {
         select $oldfh;
 
         if (catch my $e) {
-            throw $e message => 'Usage: $io->printflush()'
+            throw $e => message => 'Usage: $io->printflush()'
                 if $e->isa('Exception::Argument');
-            throw $e message => 'Cannot printflush'
+            throw $e => message => 'Cannot printflush'
                 if $e->isa('Exception::Fatal') or $e->isa('Exception::IO');
         }
 
@@ -1177,11 +1177,11 @@ sub blocking {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->blocking([BOOL])'
         if not blessed $self or @_ > 1;
 
-    throw Exception::Fatal
+    throw 'Exception::Fatal' =>
           message => 'Cannot blocking: F_GETFL'
         if not defined eval { &Fcntl::F_GETFL };
 
@@ -1195,7 +1195,7 @@ sub blocking {
     try eval {
         my $mode = eval { fcntl($hashref->{fh}, &Fcntl::F_GETFL, 0) };
 
-        throw Exception::IO
+        throw 'Exception::IO' =>
               message => 'Cannot blocking: F_GETFL'
             if not defined $mode;
 
@@ -1235,14 +1235,14 @@ sub blocking {
         }
 
         if (defined $block and $newmode != $mode) {
-            throw Exception::IO
+            throw 'Exception::IO' =>
                   message => 'Cannot blocking: F_SETFL'
                 if not defined eval { fcntl($hashref->{fh}, &Fcntl::F_SETFL, $newmode) };
         }
     };
 
     if (catch my $e) {
-        throw Exception::Fatal $e,
+        throw 'Exception::Fatal' => $e,
               message => 'Cannot blocking'
             if not defined $e->message;
         throw $e;
@@ -1258,14 +1258,14 @@ sub untaint {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->untaint()'
         if not blessed $self or @_ > 0;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    throw Exception::Fatal
+    throw 'Exception::Fatal' =>
           message => 'Cannot untaint'
         if not defined CORE::fileno $hashref->{fh};
 
@@ -1281,14 +1281,14 @@ sub taint {
 
     my $self = shift;
 
-    throw Exception::Argument
+    throw 'Exception::Argument' =>
           message => 'Usage: $io->taint()'
         if not blessed $self or @_ > 0;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    throw Exception::Fatal
+    throw 'Exception::Fatal' =>
           message => 'Cannot taint'
         if not defined CORE::fileno $hashref->{fh};
 
@@ -1343,7 +1343,7 @@ INIT: {
             local *__ANON__ = $func;
             { no warnings; warn "$func @_" if $Debug; }
             my $self = shift;
-            throw Exception::Argument
+            throw 'Exception::Argument' =>
                   message => "Usage: \$io->$func([EXPR])"
                 if @_ > 1;
             if (ref $self) {
@@ -1380,7 +1380,7 @@ INIT: {
             local *__ANON__ = $func;
             { no warnings; warn "$func @_" if $Debug; }
             my $self = shift;
-            throw Exception::Argument
+            throw 'Exception::Argument' =>
                   message => "Usage: \$io->$func([EXPR])"
                 if @_ > 1;
             if (ref $self) {
@@ -1413,7 +1413,7 @@ INIT: {
             local *__ANON__ = $func;
             { no warnings; warn "$func @_" if $Debug; }
             my $self = shift;
-            throw Exception::Argument
+            throw 'Exception::Argument' =>
                   message => "Usage: \$io->$func([EXPR])"
                 if @_ > 1;
             if (ref $self) {
@@ -1438,7 +1438,7 @@ INIT: {
     # Alias
     __PACKAGE__->meta->alias_method('autoflush' => \&output_autoflush);
 
-    # Assing tie hooks to real functions
+    # Aliasing tie hooks to real functions
     foreach my $func (qw< close eof fileno print printf readline getc >) {
         __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method($func)->body
@@ -1488,8 +1488,6 @@ package IO::Moose::Handle;
 
 __END__
 
-=for readme stop
-
 =head1 BASE CLASSES
 
 =over 2
@@ -1500,7 +1498,7 @@ L<MooseX::GlobRef::Object>
 
 =back
 
-=head1 TYPE CONSTRAINTS
+=head1 CONSTRAINTS
 
 =over
 
@@ -1515,7 +1513,17 @@ Represents Perl-style canonical mode string (i.e. "+>").
 
 =back
 
-=head1 FIELDS
+=head1 EXCEPTIONS
+
+=over
+
+=item Exception::Fatal
+
+Thrown whether fatal error is occurred by core function.
+
+=back
+
+=head1 ATTRIBUTES
 
 =over
 
@@ -1577,11 +1585,11 @@ called as B<IO::Moose::Handle-E<gt>accessor>.
 Creates the B<IO::Moose::Handle> object and calls B<fdopen> method if the
 I<fd> parameter is defined.
 
-  $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
 
 The object can be created with uninitialized file handle.
 
-  $in = new IO::Moose::Handle;
+  $in = IO::Moose::Handle->new;
   $in->fdopen(\*STDIN);
 
 =item new_from_fd(I<fd> [, I<mode>])
@@ -1589,7 +1597,7 @@ The object can be created with uninitialized file handle.
 Creates the B<IO::Moose::Handle> object and immediately opens the file handle
 based on arguments.
 
-  $out = new_from_fd IO::Moose::Handle \*STDOUT, "w";
+  $out = IO::Moose::Handle->new_from_fd( \*STDOUT, "w" );
 
 =back
 
@@ -1602,10 +1610,10 @@ based on arguments.
 Opens the file handle based on existing file handle, file handle name, IO
 object or file descriptor number.
 
-  $out = new IO::Moose::Handle;
+  $out = IO::Moose::Handle->new;
   $out->fdopen(\*STDOUT, "w");
 
-  $dup = new IO::Moose::Handle;
+  $dup = IO::Moose::Handle->new;
   $dup->fdopen($out, "a");
 
 =item close
@@ -1634,7 +1642,7 @@ throws exception on failure which can be caught with try/catch:
   use Exception::Base ':all';
   try eval {
     open $f, "/etc/hostname";
-    $io = new IO::Moose::Handle fd=>$f, mode=>"r";
+    $io = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
     $c = $io->getc;
   };
   if (catch my $e) {
@@ -1661,14 +1669,14 @@ The wrapper for perl B<CORE::format> function.
 
 The B<readline> method which is called always in scalar context.
 
-  $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
   push @a, $io->getline;  # reads only one line
 
 =item getlines
 
 The B<readline> method which is called always in array context.
 
-  $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
   print scalar $io->getlines;  # error: can't call in scalar context.
 
 =item ungetc(I<ord>)
@@ -1677,7 +1685,7 @@ Pushes a character with the given ordinal value back onto the given handle's
 input stream.  In fact this is emulated in pure-Perl code and can't be mixed
 with non IO::Moose::Handle objects.
 
-  $io = new IO::Moose::Handle fd=>\*STDIN, mode=>"r";
+  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
   $io->ungetc(ord('A'));
   print $io->getc;  # prints A
 
@@ -1685,7 +1693,7 @@ with non IO::Moose::Handle objects.
 
 The B<print> method with EOL character at the end.
 
-  $io = new IO::Moose::Handle fd=>\*STDOUT, mode=>"w";
+  $io = IO::Moose::Handle->new( fd=>\*STDOUT, mode=>"w" );
   $io->say("Hello!");
 
 =item slurp
@@ -1694,11 +1702,11 @@ Reads whole file and returns its content as a scalar in scalar context or as
 an array in array context (like B<getlines> method).
 
   open $f, "/etc/passwd";
-  
-  $io1 = new IO::Moose::Handle fd=>$f, "r";
+
+  $io1 = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
   $passwd_file = $io1->slurp;
-  
-  $io2 = new IO::Moose::Handle fd=>$f, "r";
+
+  $io2 = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
   $io2->autochomp(1);
   @passwd_lines = $io2->slurp;
 
@@ -1716,7 +1724,7 @@ Returns B<File::Stat::Moose> object which represents status of file pointed by
 current file handle.
 
   open $f, "/etc/passwd";
-  $io = new IO::Moose::Handle fd=>$f, "r";
+  $io = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
   $st = $io->stat;
   print $st->size;  # size of /etc/passwd file
 
@@ -1777,9 +1785,9 @@ object's functions like B<print>, B<close>, etc.
   sub new { bless {}, $_[0]; }
   sub open { my $self=shift; CORE::open $self->{fh}, @_; }
   sub print { my $self=shift; CORE::print {$self->{fh}} @_; }
-  
+
   package main;
-  my $io = new My::IO::BadExample;
+  my $io = My::IO::BadExample->new;
   open $io '>', undef;  # Wrong: missing comma after first argument
   print $io "test";     # Wrong: not GLOB reference
 
@@ -1788,7 +1796,7 @@ You can use tied handlers:
   $io = \*FOO;
   tie *$io, 'My::IO::Tie';
   open $io, '>', undef;  # see comma after $io: open is just a function
-  print $io "test";      # standard indirect notation
+  print $io "test";      # $io is just a GLOB reference
 
 The IO::Moose::Handle object is stored in hash available via globref.
 

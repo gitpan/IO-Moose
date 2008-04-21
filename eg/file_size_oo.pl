@@ -15,7 +15,7 @@ package main;
 
 { no warnings; $IO::Moose::Seekable::Debug = $ENV{DEBUG}; }
 
-my $stdin = new My::IO fd=>\*STDIN, mode=>'r';
+my $stdin = My::IO->new( fd=>\*STDIN, mode=>'r' );
 
 $stdin->slurp;
 

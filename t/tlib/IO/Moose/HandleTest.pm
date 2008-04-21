@@ -6,8 +6,7 @@ use warnings;
 use base 'Test::Unit::TestCase';
 
 use IO::Moose::Handle;
-use Exception::Base ':all',
-    'Exception::IO' => { isa => 'Exception::System' };
+use Exception::Base ':all';
 
 use File::Temp 'tempfile';
 
@@ -59,7 +58,7 @@ sub test_fdopen {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     # fdopen($fh)
     my $obj1 = IO::Moose::Handle->new;
@@ -122,7 +121,7 @@ sub test_fdopen_error {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -160,7 +159,7 @@ sub test_fdopen_constructor {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->fdopen($fh_in);
     $self->assert_not_null($obj1);
@@ -183,7 +182,7 @@ sub test_close {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -209,7 +208,7 @@ sub test_close_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -235,7 +234,7 @@ sub test_eof_not_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -259,9 +258,9 @@ sub test_eof_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
     close $fh_out;
-    open $fh_out, '<', $filename_out or throw Exception::IO;
+    open $fh_out, '<', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -285,7 +284,7 @@ sub test_eof_tied_not_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -309,9 +308,9 @@ sub test_eof_tied_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
     close $fh_out;
-    open $fh_out, '<', $filename_out or throw Exception::IO;
+    open $fh_out, '<', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -336,7 +335,7 @@ sub test_eof_exception {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -359,7 +358,7 @@ sub test_fileno {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -382,7 +381,7 @@ sub test_fileno_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -405,7 +404,7 @@ sub test_opened {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -433,7 +432,7 @@ sub test_print {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -449,7 +448,7 @@ sub test_print {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
@@ -466,7 +465,7 @@ sub test_print_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -482,7 +481,7 @@ sub test_print_tied {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
@@ -499,7 +498,7 @@ sub test_printf {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -515,7 +514,7 @@ sub test_printf {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
@@ -532,7 +531,7 @@ sub test_printf_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -548,7 +547,7 @@ sub test_printf_tied {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
@@ -565,7 +564,7 @@ sub test_write {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -581,7 +580,7 @@ sub test_write {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     my $content = <$f>;
     close $f;
     $self->assert_equals('abcdefghiopq', $content);
@@ -614,7 +613,7 @@ sub test_format_write {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
     my @vars = ($=, $-, $~, $^, $^L);
 
     eval {
@@ -668,7 +667,7 @@ sub test_output_record_separator {
     return if $^V lt v5.8;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
     my @vars = ($\);
 
     eval {
@@ -742,7 +741,7 @@ sub test_output_field_separator {
     return if $^V lt v5.8;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
     my @vars = ($,);
 
     eval {
@@ -811,7 +810,7 @@ sub test_readline_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -845,7 +844,7 @@ sub test_readline_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -878,7 +877,7 @@ sub test_readline_ungetc_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -911,7 +910,7 @@ sub test_readline_ungetc_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -941,7 +940,7 @@ sub test_readline_global_input_record_separator {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
     my @vars = ($/);
 
     eval {
@@ -983,7 +982,7 @@ sub test_readline_filehandle_input_record_separator {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
     my @vars = ($/);
 
     eval {
@@ -1032,7 +1031,7 @@ sub test_readline_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1058,7 +1057,7 @@ sub test_getline_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1083,7 +1082,7 @@ sub test_getline_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1108,7 +1107,7 @@ sub test_getline_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1134,7 +1133,7 @@ sub test_getlines_wantscalar_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1159,7 +1158,7 @@ sub test_getlines_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1183,7 +1182,7 @@ sub test_getlines_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1209,7 +1208,7 @@ sub test_sysread {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1247,7 +1246,7 @@ sub test_sysread_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1285,7 +1284,7 @@ sub test_sysread_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1322,7 +1321,7 @@ sub test_syswrite {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1343,7 +1342,7 @@ sub test_syswrite {
 
     $obj->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     read $f, (my $content), 99999;
     $self->assert_equals('12345678901234567890', $content);
 
@@ -1355,7 +1354,7 @@ sub test_syswrite_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1376,7 +1375,7 @@ sub test_syswrite_tied {
 
     $obj->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     read $f, (my $content), 99999;
     $self->assert_equals('12345678901234567890', $content);
 
@@ -1388,11 +1387,11 @@ sub test_getc {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
-    printf $fh_out "ABC\000" or throw Exception::IO;
-    close $fh_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    printf $fh_out "ABC\000" or throw 'Exception::IO';
+    close $fh_out or throw 'Exception::IO';
 
-    open $fh_in, '<', $filename_out or throw Exception::IO;
+    open $fh_in, '<', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1439,11 +1438,11 @@ sub test_getc_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
-    printf $fh_out "ABC\000" or throw Exception::IO;
-    close $fh_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    printf $fh_out "ABC\000" or throw 'Exception::IO';
+    close $fh_out or throw 'Exception::IO';
 
-    open $fh_in, '<', $filename_out or throw Exception::IO;
+    open $fh_in, '<', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1490,11 +1489,11 @@ sub test_getc_ungetc {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
-    printf $fh_out "ABC" or throw Exception::IO;
-    close $fh_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    printf $fh_out "ABC" or throw 'Exception::IO';
+    close $fh_out or throw 'Exception::IO';
 
-    open $fh_in, '<', $filename_out or throw Exception::IO;
+    open $fh_in, '<', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1543,7 +1542,7 @@ sub test_getc_exception {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1574,7 +1573,7 @@ sub test_say {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1590,7 +1589,7 @@ sub test_say {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     read $f, (my $content), 99999;
     close $f;
     $self->assert_equals("a\nb\nc\n", $content);
@@ -1607,7 +1606,7 @@ sub test_slurp_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1641,7 +1640,7 @@ sub test_slurp_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1675,7 +1674,7 @@ sub test_slurp_from_fd_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $c = IO::Moose::Handle->slurp($fh_in);
     $self->assert(length $c > 1, 'length $c > 1');
@@ -1689,10 +1688,10 @@ sub test_truncate {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
-    print $fh_out "ABCDEFGHIJ" or throw Exception::IO;
-    close $fh_out or throw Exception::IO;
-    open $fh_out, '>>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    print $fh_out "ABCDEFGHIJ" or throw 'Exception::IO';
+    close $fh_out or throw 'Exception::IO';
+    open $fh_out, '>>', $filename_out or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1707,7 +1706,7 @@ sub test_truncate {
 
     $obj->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     read $f, (my $content), 99999;
     close $f;
     $self->assert_equals("ABCDE\000\000\000\000\000", $content);
@@ -1725,7 +1724,7 @@ sub test_stat {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     try eval {
         my $obj = IO::Moose::Handle->new;
@@ -1742,7 +1741,7 @@ sub test_stat {
 
         $obj->close;
 
-        open my $f, '<', $filename_in or throw Exception::IO;
+        open my $f, '<', $filename_in or throw 'Exception::IO';
         read $f, (my $content), 99999;
         close $f;
         $self->assert_equals(length($content), $st->size);
@@ -1762,7 +1761,7 @@ sub test_error {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
 
@@ -1802,7 +1801,7 @@ sub test_sync {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1856,7 +1855,7 @@ sub test_flush {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1871,7 +1870,7 @@ sub test_flush {
     $self->assert_not_null($obj1->print('a'));
     $self->assert_not_null($obj1->print('b'));
 
-    open my $f1, '<', $filename_out or throw Exception::IO;
+    open my $f1, '<', $filename_out or throw 'Exception::IO';
     read $f1, (my $content1), 99999;
     close $f1;
     $self->assert_equals('', $content1);
@@ -1879,14 +1878,14 @@ sub test_flush {
     my $c1 = $obj1->flush;
     $self->assert_not_null($c1);
 
-    open my $f2, '<', $filename_out or throw Exception::IO;
+    open my $f2, '<', $filename_out or throw 'Exception::IO';
     read $f2, (my $content2), 99999;
     close $f2;
     $self->assert_equals('ab', $content2);
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw Exception::IO;
+    open my $f, '<', $filename_out or throw 'Exception::IO';
     read $f, (my $content), 99999;
     close $f;
     $self->assert_equals('ab', $content);
@@ -1903,7 +1902,7 @@ sub test_printflush {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw Exception::IO;
+    open $fh_out, '>', $filename_out or throw 'Exception::IO';
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1917,14 +1916,14 @@ sub test_printflush {
 
     $self->assert($obj1->printflush('a'), '$obj1->printflush(\'a\')');
 
-    open my $f1, '<', $filename_out or throw Exception::IO;
+    open my $f1, '<', $filename_out or throw 'Exception::IO';
     read $f1, (my $content1), 99999;
     close $f1;
     $self->assert_equals('a', $content1);
 
     $self->assert($obj1->printflush('b'), '$obj1->printflush(\'b\')');
     
-    open my $f2, '<', $filename_out or throw Exception::IO;
+    open my $f2, '<', $filename_out or throw 'Exception::IO';
     read $f2, (my $content2), 99999;
     close $f2;
     $self->assert_equals('ab', $content2);
@@ -1944,7 +1943,7 @@ sub test_blocking {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     try eval {
         my $obj = IO::Moose::Handle->new;
@@ -1984,7 +1983,7 @@ sub test_untaint {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw Exception::IO;
+    open $fh_in, '<', $filename_in or throw 'Exception::IO';
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
