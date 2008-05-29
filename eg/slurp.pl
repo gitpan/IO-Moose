@@ -1,9 +1,22 @@
 #!/usr/bin/perl -I../lib
 
-# Usage: slurp < file
+# Usage: slurp file
 
-use IO::Handle::Moose;
+BEGIN { eval 'use Smart::Comments;' if $ENV{DEBUG}; }
+BEGIN { $IO::Moose::Handle::Debug   = $ENV{DEBUG}; }
+BEGIN { $IO::Moose::Seekable::Debug = $ENV{DEBUG}; }
+BEGIN { $IO::Moose::File::Debug     = $ENV{DEBUG}; }
 
-$IO::Handle::Moose::Debug = $ENV{DEBUG};
+### BEGIN
 
-print IO::Handle::Moose->slurp(\*STDIN);
+use IO::Moose::File;
+
+eval {
+    ### $ARGV[0]: $ARGV[0]
+    my $file = IO::Moose::File->slurp( $ARGV[0] );
+    ### $file: $file
+};
+
+### $@: "$@"
+
+### END

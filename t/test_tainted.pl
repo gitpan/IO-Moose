@@ -24,9 +24,9 @@ BEGIN {
 use Test::Unit::Lite;
 
 use Exception::Base
-    max_arg_nums => 0, verbosity => 4,
-    'Exception::Warning';
-
-local $SIG{__WARN__} = sub { $@ = $_[0]; Exception::Warning->throw(message => 'Warning', ignore_level => 1) };
+    max_arg_nums => 0, max_arg_len => 200, verbosity => 3,
+    '+ignore_package' => [ qr/^Test::Unit::/, 'File::Find', 'main' ];
+use Exception::Warning '%SIG' => 'die';
+use Exception::Died    '%SIG';
 
 all_tests;

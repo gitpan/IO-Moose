@@ -2,9 +2,9 @@
 
 # Usage: uniq_oo.pl < file
 
-use IO::Moose::Handle;
+BEGIN { $IO::Moose::Handle::Debug = $ENV{DEBUG}; }
 
-$IO::Moose::Handle::Debug = $ENV{DEBUG};
+use IO::Moose::Handle;
 
 my $stdin  = IO::Moose::Handle->new(fd=>\*STDIN,  mode=>'r');
 my $stdout = IO::Moose::Handle->new(fd=>\*STDOUT, mode=>'w');

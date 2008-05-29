@@ -1,3 +1,22 @@
+------------------------------------------------------------------------
+0.05 | Piotr Roszatycki <dexter@debian.org> | 2008-05-29
+
+New:
+
+* New method IO::Moose::Handle->read.
+* IO::Moose::File->slurp accepts additional arguments.
+* Provides Exception::Unimplemented exception class.
+
+Changes:
+
+* Adapted to new Exception::Base 0.16 and Exception::Died.
+* Exception::Fatal is an Exception::Died.
+* Requires Exception::Base >= 0.16, Exception::System >= 0.09,
+  Exception::Died >= 0.02.
+* Build requires Exception::Warning.
+* Conflicts Fatal::Exception < 0.03.
+
+------------------------------------------------------------------------
 0.0401 | Piotr Roszatycki <dexter@debian.org> | 2008-04-20
 
 Changes:

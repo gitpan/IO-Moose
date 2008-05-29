@@ -2,9 +2,9 @@
 
 # Usage: uniq_func.pl < file
 
-use IO::Moose::Handle;
+BEGIN { $IO::Moose::Handle::Debug = $ENV{DEBUG}; }
 
-$IO::Moose::Handle::Debug = $ENV{DEBUG};
+use IO::Moose::Handle;
 
 my $stdin  = IO::Moose::Handle->new_from_fd( \*STDIN,  '<' );
 my $stdout = IO::Moose::Handle->new_from_fd( \*STDOUT, '>' );

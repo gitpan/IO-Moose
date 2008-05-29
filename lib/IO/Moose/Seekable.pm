@@ -2,7 +2,7 @@
 
 package IO::Moose::Seekable;
 use 5.006;
-our $VERSION = 0.04_01;
+our $VERSION = 0.05;
 
 =head1 NAME
 
@@ -60,7 +60,7 @@ use warnings FATAL => 'all';
 use Moose::Role;
 
 
-use Exception::Base ':all',
+use Exception::Base
     '+ignore_package'     => [ __PACKAGE__ ],
     'Exception::Fatal'    => { isa => 'Exception::Base' };
 
@@ -73,38 +73,36 @@ BEGIN { eval { require Fcntl }; }
 
 
 # Debugging flag
-our $Debug = 0;
+our $Debug;
+BEGIN { eval 'use Smart::Comments;' if $Debug; }
 
 
 # Wrapper for CORE::seek
 sub seek {
-    { no warnings; warn "seek @_" if $Debug; }
+    ### seek: @_
 
     my $self = shift;
 
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw 'Exception::Argument' =>
+    Exception::Argument->throw(
           message => 'Usage: $io->seek(POS, WHENCE)'
-        if not blessed $self or @_ != 2;
+    ) if not blessed $self or @_ != 2;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
     my $status;
-    try eval {
+    eval {
         $status = CORE::seek $hashref->{fh}, $_[0], $_[1];
     };
-    if (catch my $e) {
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot seek'
-            if not defined $e->message;
-        throw $e;
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot seek' );
     }
     if (not $status) {
-        throw 'Exception::IO' =>
-              message => 'Cannot seek';
+        Exception::IO->throw( message => 'Cannot seek' );
     }
 
     return $self;
@@ -113,88 +111,82 @@ sub seek {
 
 # Wrapper for CORE::sysseek
 sub sysseek {
-    { no warnings; warn "sysseek @_" if $Debug; }
+    ### sysseek: @_
 
     my $self = shift;
 
-    throw 'Exception::Argument' =>
+    Exception::Argument->throw(
           message => 'Usage: $io->sysseek(POS, WHENCE)'
-        if not blessed $self or @_ != 2;
+    ) if not blessed $self or @_ != 2;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
     my $status;
-    try eval {
+    eval {
         $status = CORE::sysseek $hashref->{fh}, $_[0], $_[1];
     };
-    if (catch my $e) {
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot sysseek'
-            if not defined $e->message;
-        throw $e;
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot sysseek' );
     }
     if (not $status) {
-        throw 'Exception::IO' =>
-              message => 'Cannot sysseek';
+        Exception::IO->throw( message => 'Cannot sysseek' );
     }
+
     return $status;
 }
 
 
 # Wrapper for CORE::tell
 sub tell {
-    { no warnings; warn "tell @_" if $Debug; }
+    ### tell: @_
 
     my $self = shift;
 
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw 'Exception::Argument' =>
+    Exception::Argument->throw(
           message => 'Usage: $io->tell()'
-        if not blessed $self or @_ > 0;
+    ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
     my $status;
-    try eval {
+    eval {
         $status = CORE::tell $hashref->{fh};
     };
-    if (catch my $e) {
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot tell'
-            if not defined $e->message;
-        throw $e;
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot tell' );
     }
+
     return $status == 0 ? '0 but true' : $status;
 }
 
 
 # Pure Perl implementation
 sub getpos {
-    { no warnings; warn "getpos @_" if $Debug; }
+    ### getpos: @_
 
     my $self = shift;
 
-    throw 'Exception::Argument' =>
+    Exception::Argument->throw(
           message => 'Usage: $io->getpos()'
-        if not blessed $self or @_ > 0;
+    ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
     my $hashref = ${*$self};
 
     my $pos;
-    try eval {
+    eval {
         $pos = $self->tell;
     };
-
-    if (catch my $e) {
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot getpos'
-            if not defined $e->message;
-        throw $e;
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot getpos' );
     }
 
     return $pos;
@@ -203,13 +195,13 @@ sub getpos {
 
 # Pure Perl implementation
 sub setpos {
-    { no warnings; warn "setpos @_" if $Debug; }
+    # setpos: @_
 
     my $self = shift;
 
-    throw 'Exception::Argument' =>
+    Exception::Argument->throw(
           message => 'Usage: $io->setpos(POS)'
-        if not blessed $self or @_ != 1;
+    ) if not blessed $self or @_ != 1;
 
     my ($pos) = @_;
 
@@ -217,15 +209,12 @@ sub setpos {
     my $hashref = ${*$self};
 
     my $status;
-    try eval {
+    eval {
         $status = $self->seek($pos, &Fcntl::SEEK_SET);
     };
-
-    if (catch my $e) {
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot getpos'
-            if not defined $e->message;
-        throw $e;
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot getpos' );
     }
 
     return $self;

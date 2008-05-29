@@ -2,6 +2,9 @@
 
 # Usage: file_size.pl < file
 
+BEGIN { $IO::Moose::Seekable::Debug = $ENV{DEBUG}; }
+
+
 package My::IO;
 
 use Moose;
@@ -12,8 +15,6 @@ with 'IO::Moose::Seekable';
 
 
 package main;
-
-{ no warnings; $IO::Moose::Seekable::Debug = $ENV{DEBUG}; }
 
 my $stdin = My::IO->new( fd=>\*STDIN, mode=>'r');
 

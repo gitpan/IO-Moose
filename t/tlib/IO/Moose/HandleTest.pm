@@ -6,7 +6,7 @@ use warnings;
 use base 'Test::Unit::TestCase';
 
 use IO::Moose::Handle;
-use Exception::Base ':all';
+use Exception::Base;
 
 use File::Temp 'tempfile';
 
@@ -58,7 +58,7 @@ sub test_fdopen {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     # fdopen($fh)
     my $obj1 = IO::Moose::Handle->new;
@@ -102,7 +102,7 @@ sub test_fdopen {
     $self->assert($obj4->isa("IO::Moose::Handle"), '$obj4->isa("IO::Moose::Handle")');
     $self->assert_equals('GLOB', reftype $obj4);
     $self->assert_not_null($obj4->fileno);
-    
+
     # fdopen('GLOB')
     my $obj5 = IO::Moose::Handle->new;
     $self->assert_not_null($obj5);
@@ -121,35 +121,35 @@ sub test_fdopen_error {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
     $self->assert($obj1->isa("IO::Moose::Handle"), '$obj1->isa("IO::Moose::Handle")');
-    try eval { $obj1->fdopen; };
-    catch my $e1;
+    eval { $obj1->fdopen; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Argument', ref $e1);
 
     my $obj2 = IO::Moose::Handle->new;
     $self->assert_not_null($obj2);
     $self->assert($obj2->isa("IO::Moose::Handle"), '$obj2->isa("IO::Moose::Handle")');
-    try eval { $obj2->fdopen($fh_in, '<', 'extra_arg'); };
-    catch my $e2;
+    eval { $obj2->fdopen($fh_in, '<', 'extra_arg'); };
+    my $e2 = Exception::Base->catch;
     $self->assert_equals('Exception::Argument', ref $e2);
 
     my $obj3 = IO::Moose::Handle->new;
     $self->assert_not_null($obj3);
     $self->assert($obj3->isa("IO::Moose::Handle"), '$obj3->isa("IO::Moose::Handle")');
-    try eval { $obj3->fdopen('IO_HANDLE_MOOSETEST_BADGLOB'); };
-    catch my $e3;
+    eval { $obj3->fdopen('IO_HANDLE_MOOSETEST_BADGLOB'); };
+    my $e3 = Exception::Base->catch;
     $self->assert_equals('Exception::IO', ref $e3);
 
     my $obj4 = IO::Moose::Handle->new;
     $self->assert_not_null($obj4);
     $self->assert($obj4->isa("IO::Moose::Handle"), '$obj4->isa("IO::Moose::Handle")');
-    try eval { my $obj4 = IO::Moose::Handle->fdopen($fh_in, 'unknown_flag'); };
-    catch my $e4;
-    $self->assert_matches(qr/does not pass the type constraint/, $@);
+    eval { my $obj4 = IO::Moose::Handle->fdopen($fh_in, 'unknown_flag'); };
+    my $e4 = Exception::Base->catch;
+    $self->assert_matches(qr/does not pass the type constraint/, $e4);
 
     # tear down
     close $fh_in;
@@ -159,7 +159,7 @@ sub test_fdopen_constructor {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->fdopen($fh_in);
     $self->assert_not_null($obj1);
@@ -173,8 +173,8 @@ sub test_fdopen_constructor {
 
 sub test_fdopen_constructor_error {
     my $self = shift;
-    try eval { my $obj1 = IO::Moose::Handle->fdopen; };
-    catch my $e1;
+    eval { my $obj1 = IO::Moose::Handle->fdopen; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Argument', ref $e1);
 }
 
@@ -182,7 +182,7 @@ sub test_close {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -196,8 +196,8 @@ sub test_close {
     $obj1->close;
 
     # close closed fh
-    try eval { $obj1->close; };
-    catch my $e1;
+    eval { $obj1->close; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::IO', ref $e1);
 
     # tear down
@@ -208,7 +208,7 @@ sub test_close_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -222,8 +222,8 @@ sub test_close_tied {
     close $obj1;
 
     # close closed fh
-    try eval { close $obj1; };
-    catch my $e1;
+    eval { close $obj1; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::IO', ref $e1);
 
     # tear down
@@ -234,7 +234,7 @@ sub test_eof_not_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -258,9 +258,9 @@ sub test_eof_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
     close $fh_out;
-    open $fh_out, '<', $filename_out or throw 'Exception::IO';
+    open $fh_out, '<', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -284,7 +284,7 @@ sub test_eof_tied_not_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -308,9 +308,9 @@ sub test_eof_tied_empty_file {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
     close $fh_out;
-    open $fh_out, '<', $filename_out or throw 'Exception::IO';
+    open $fh_out, '<', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -335,7 +335,7 @@ sub test_eof_exception {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -346,8 +346,8 @@ sub test_eof_exception {
     $self->assert_equals('GLOB', reftype $obj1);
     $self->assert_not_null($obj1->fileno);
 
-    try eval { $obj1->eof; };
-    catch my $e1;
+    eval { $obj1->eof; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -358,7 +358,7 @@ sub test_fileno {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -381,7 +381,7 @@ sub test_fileno_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -404,14 +404,14 @@ sub test_opened {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
     $self->assert($obj1->isa("IO::Moose::Handle"), '$obj1->isa("IO::Moose::Handle")');
-    
+
     $self->assert(! $obj1->opened, '! $obj1->opened');
-    
+
     $obj1->fdopen($fh_in);
     $self->assert_not_null($obj1);
     $self->assert($obj1->isa("IO::Moose::Handle"), '$obj1->isa("IO::Moose::Handle")');
@@ -432,7 +432,7 @@ sub test_print {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -448,13 +448,13 @@ sub test_print {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
 
-    try eval { $obj1->print('WARN'); };
-    catch my $e1;
+    eval { $obj1->print('WARN'); };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -465,7 +465,7 @@ sub test_print_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -481,13 +481,13 @@ sub test_print_tied {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
 
-    try eval { print $obj1 'WARN'; };
-    catch my $e1;
+    eval { print $obj1 'WARN'; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -498,7 +498,7 @@ sub test_printf {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -514,13 +514,13 @@ sub test_printf {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
 
-    try eval { $obj1->printf('WARN'); };
-    catch my $e1;
+    eval { $obj1->printf('WARN'); };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -531,7 +531,7 @@ sub test_printf_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -547,13 +547,13 @@ sub test_printf_tied {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     my $content = <$f>;
     close $f;
     $self->assert_equals('abc', $content);
 
-    try eval { printf $obj1 'WARN'; };
-    catch my $e1;
+    eval { printf $obj1 'WARN'; };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -564,7 +564,7 @@ sub test_write {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -580,13 +580,13 @@ sub test_write {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     my $content = <$f>;
     close $f;
     $self->assert_equals('abcdefghiopq', $content);
 
-    try eval { $obj1->write('WARN'); };
-    catch my $e1;
+    eval { $obj1->write('WARN'); };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -613,7 +613,7 @@ sub test_format_write {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
     my @vars = ($=, $-, $~, $^, $^L);
 
     eval {
@@ -633,7 +633,7 @@ sub test_format_write {
         $self->assert_equals(']', $obj1->format_formfeed);
 
         $obj1->format_write(__PACKAGE__ . '::FORMAT_TEST1');
-    
+
         my $prev1 = $obj1->format_lines_per_page;
         $self->assert_equals(3, $prev1);
 
@@ -650,15 +650,15 @@ sub test_format_write {
                    . "          header\ncontent\ncontent\n";
         $self->assert_equals($string, $content);
 
-        try eval { $obj1->format_write(__PACKAGE__ . '::FORMAT_TEST1'); };
-        catch my $e1;
+        eval { $obj1->format_write(__PACKAGE__ . '::FORMAT_TEST1'); };
+        my $e1 = Exception::Base->catch;
         $self->assert_equals('Exception::Fatal', ref $e1);
     };
 
     # tear down
     close $fh_out;
     ($=, $-, $~, $^, $^L) = @vars;
-    
+
     die $@ if $@;
 }
 
@@ -667,7 +667,7 @@ sub test_output_record_separator {
     return if $^V lt v5.8;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
     my @vars = ($\);
 
     eval {
@@ -732,7 +732,7 @@ sub test_output_record_separator {
     # tear down
     close $fh_out;
     ($\) = @vars;
-    
+
     die $@ if $@;
 }
 
@@ -741,7 +741,7 @@ sub test_output_field_separator {
     return if $^V lt v5.8;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
     my @vars = ($,);
 
     eval {
@@ -802,7 +802,7 @@ sub test_output_field_separator {
     # tear down
     close $fh_out;
     ($,) = @vars;
-    
+
     die $@ if $@;
 }
 
@@ -810,7 +810,7 @@ sub test_readline_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -822,7 +822,7 @@ sub test_readline_wantscalar {
     $self->assert_not_null($obj->fileno);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my $c = $obj->readline;
@@ -830,8 +830,8 @@ sub test_readline_wantscalar {
     $self->assert($c =~ tr/\n// == 1, '$c =~ tr/\n// == 1');
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c;
+        no warnings;
+        kill 0 * $c;
     }
 
     $obj->close;
@@ -844,7 +844,7 @@ sub test_readline_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -856,15 +856,15 @@ sub test_readline_wantarray {
     $self->assert_not_null($obj->fileno);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my @c = $obj->readline;
     $self->assert(scalar @c > 1, 'scalar @c > 1');
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c[0];
+        no warnings;
+        kill 0 * $c[0];
     }
 
     $obj->close;
@@ -877,7 +877,7 @@ sub test_readline_ungetc_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -910,7 +910,7 @@ sub test_readline_ungetc_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -940,7 +940,7 @@ sub test_readline_global_input_record_separator {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
     my @vars = ($/);
 
     eval {
@@ -974,7 +974,7 @@ sub test_readline_global_input_record_separator {
     # tear down
     close $fh_in;
     ($/) = @vars;
-    
+
     die $@ if $@;
 }
 
@@ -982,7 +982,7 @@ sub test_readline_filehandle_input_record_separator {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
     my @vars = ($/);
 
     eval {
@@ -1023,7 +1023,7 @@ sub test_readline_filehandle_input_record_separator {
     # tear down
     close $fh_in;
     ($/) = @vars;
-    
+
     die $@ if $@;
 }
 
@@ -1031,7 +1031,7 @@ sub test_readline_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1041,12 +1041,12 @@ sub test_readline_exception {
     $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
     $self->assert_equals('GLOB', reftype $obj);
     $self->assert_not_null($obj->fileno);
-    
-    $obj->close;
-    $self->assert_null($obj->fileno);    
 
-    try eval { $obj->readline };
-    catch my $e;
+    $obj->close;
+    $self->assert_null($obj->fileno);
+
+    eval { $obj->readline };
+    my $e = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e);
 
     # tear down
@@ -1057,7 +1057,7 @@ sub test_getline_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1082,7 +1082,7 @@ sub test_getline_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1107,7 +1107,7 @@ sub test_getline_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1117,12 +1117,12 @@ sub test_getline_exception {
     $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
     $self->assert_equals('GLOB', reftype $obj);
     $self->assert_not_null($obj->fileno);
-    
-    $obj->close;
-    $self->assert_null($obj->fileno);    
 
-    try eval { $obj->getline };
-    catch my $e;
+    $obj->close;
+    $self->assert_null($obj->fileno);
+
+    eval { $obj->getline };
+    my $e = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e);
 
     # tear down
@@ -1133,7 +1133,7 @@ sub test_getlines_wantscalar_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1144,8 +1144,8 @@ sub test_getlines_wantscalar_exception {
     $self->assert_equals('GLOB', reftype $obj);
     $self->assert_not_null($obj->fileno);
 
-    try eval { my $c = $obj->getlines };
-    catch my $e;
+    eval { my $c = $obj->getlines };
+    my $e = Exception::Base->catch;
     $self->assert_equals('Exception::Argument', ref $e);
 
     $obj->close;
@@ -1158,7 +1158,7 @@ sub test_getlines_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1182,7 +1182,7 @@ sub test_getlines_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1192,12 +1192,12 @@ sub test_getlines_exception {
     $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
     $self->assert_equals('GLOB', reftype $obj);
     $self->assert_not_null($obj->fileno);
-    
-    $obj->close;
-    $self->assert_null($obj->fileno);    
 
-    try eval { my @c = $obj->getlines };
-    catch my $e;
+    $obj->close;
+    $self->assert_null($obj->fileno);
+
+    eval { my @c = $obj->getlines };
+    my $e = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e);
 
     # tear down
@@ -1208,7 +1208,7 @@ sub test_sysread {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1220,7 +1220,7 @@ sub test_sysread {
     $self->assert_not_null($obj->fileno);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my $s1 = $obj->sysread(my $c, 10);
@@ -1232,8 +1232,8 @@ sub test_sysread {
     $self->assert_equals(20, length($c));
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c;
+        no warnings;
+        kill 0 * $c;
     }
 
     $obj->close;
@@ -1246,7 +1246,7 @@ sub test_sysread_tied {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1258,7 +1258,7 @@ sub test_sysread_tied {
     $self->assert_not_null($obj->fileno);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my $s1 = sysread $obj, (my $c), 10;
@@ -1270,8 +1270,8 @@ sub test_sysread_tied {
     $self->assert_equals(20, length($c));
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c;
+        no warnings;
+        kill 0 * $c;
     }
 
     $obj->close;
@@ -1284,7 +1284,7 @@ sub test_sysread_exception {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1294,24 +1294,24 @@ sub test_sysread_exception {
     $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
     $self->assert_equals('GLOB', reftype $obj);
     $self->assert_not_null($obj->fileno);
-    
-    try eval { my $s1 = $obj->sysread('CONST', 10) };
-    catch my $e1;
+
+    eval { my $s1 = $obj->sysread('CONST', 10) };
+    my $e1 = Exception::Base->catch;
     # Modification of a read-only value attempted
     $self->assert_equals('Exception::Fatal', ref $e1);
 
-    try eval { my $s2 = $obj->sysread };
-    catch my $e2;
+    eval { my $s2 = $obj->sysread };
+    my $e2 = Exception::Base->catch;
     $self->assert_equals('Exception::Argument', ref $e2);
 
     $obj->close;
-    $self->assert_null($obj->fileno);    
+    $self->assert_null($obj->fileno);
 
-    try eval { my $s3 = $obj->sysread(my $c, 10) };
-    catch my $e3;
+    eval { my $s3 = $obj->sysread(my $c, 10) };
+    my $e3 = Exception::Base->catch;
     # sysread() on closed filehandle
     $self->assert_equals('Exception::Fatal', ref $e3)
-	if $^V ge v5.8;
+        if $^V ge v5.8;
 
     # tear down
     close $fh_in;
@@ -1321,7 +1321,7 @@ sub test_syswrite {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1342,7 +1342,7 @@ sub test_syswrite {
 
     $obj->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     read $f, (my $content), 99999;
     $self->assert_equals('12345678901234567890', $content);
 
@@ -1354,7 +1354,7 @@ sub test_syswrite_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1375,7 +1375,7 @@ sub test_syswrite_tied {
 
     $obj->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     read $f, (my $content), 99999;
     $self->assert_equals('12345678901234567890', $content);
 
@@ -1387,11 +1387,11 @@ sub test_getc {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
-    printf $fh_out "ABC\000" or throw 'Exception::IO';
-    close $fh_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
+    printf $fh_out "ABC\000" or Exception::IO->throw;
+    close $fh_out or Exception::IO->throw;
 
-    open $fh_in, '<', $filename_out or throw 'Exception::IO';
+    open $fh_in, '<', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1402,7 +1402,7 @@ sub test_getc {
     $self->assert_equals('GLOB', reftype $obj);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my $c1 = $obj->getc;
@@ -1424,8 +1424,8 @@ sub test_getc {
     $self->assert_null($c6, '$c6 = $obj->getc');
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c1;
+        no warnings;
+        kill 0 * $c1;
     }
 
     $obj->close;
@@ -1438,11 +1438,11 @@ sub test_getc_tied {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
-    printf $fh_out "ABC\000" or throw 'Exception::IO';
-    close $fh_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
+    printf $fh_out "ABC\000" or Exception::IO->throw;
+    close $fh_out or Exception::IO->throw;
 
-    open $fh_in, '<', $filename_out or throw 'Exception::IO';
+    open $fh_in, '<', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1453,7 +1453,7 @@ sub test_getc_tied {
     $self->assert_equals('GLOB', reftype $obj);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my $c1 = getc $obj;
@@ -1475,8 +1475,8 @@ sub test_getc_tied {
     $self->assert_null($c6, '$c6 = getc $obj');
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c1;
+        no warnings;
+        kill 0 * $c1;
     }
 
     $obj->close;
@@ -1489,11 +1489,11 @@ sub test_getc_ungetc {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
-    printf $fh_out "ABC" or throw 'Exception::IO';
-    close $fh_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
+    printf $fh_out "ABC" or Exception::IO->throw;
+    close $fh_out or Exception::IO->throw;
 
-    open $fh_in, '<', $filename_out or throw 'Exception::IO';
+    open $fh_in, '<', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1505,7 +1505,7 @@ sub test_getc_ungetc {
 
     my $c1 = $obj->getc;
     $self->assert_equals('A', $c1);
-    
+
     $obj->ungetc(ord('1'));
     $obj->ungetc(ord('2'));
 
@@ -1542,7 +1542,7 @@ sub test_getc_exception {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1552,18 +1552,94 @@ sub test_getc_exception {
     $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
     $self->assert_equals('GLOB', reftype $obj);
     $self->assert_not_null($obj->fileno);
-    
-    try eval { $obj->getc('ARG') };
-    catch my $e1;
+
+    eval { $obj->getc('ARG') };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Argument', ref $e1);
 
-    try eval { $obj->getc };
-    catch my $e2;
+    eval { $obj->getc };
+    my $e2 = Exception::Base->catch;
     # Filehandle $fh opened only for output
     $self->assert_equals('Exception::Fatal', ref $e2);
 
     $obj->close;
-    $self->assert_null($obj->fileno);    
+    $self->assert_null($obj->fileno);
+
+    # tear down
+    close $fh_in;
+}
+
+sub test_read {
+    my $self = shift;
+
+    # set up
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
+
+    my $obj = IO::Moose::Handle->new;
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
+    $obj->fdopen($fh_in);
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
+    $self->assert_equals('GLOB', reftype $obj);
+    $self->assert_not_null($obj->fileno);
+
+    if (${^TAINT}) {
+        $obj->untaint;
+    }
+
+    my $s1 = $obj->read(my $c, 10);
+    $self->assert_equals(10, $s1);
+    $self->assert_equals(10, length($c));
+
+    my $s2 = $obj->read($c, 10, 10);
+    $self->assert_equals(10, $s2);
+    $self->assert_equals(20, length($c));
+
+    if (${^TAINT}) {
+        no warnings;
+        kill 0 * $c;
+    }
+
+    $obj->close;
+
+    # tear down
+    close $fh_in;
+}
+
+sub test_read_tied {
+    my $self = shift;
+
+    # set up
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
+
+    my $obj = IO::Moose::Handle->new;
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
+    $obj->fdopen($fh_in);
+    $self->assert_not_null($obj);
+    $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
+    $self->assert_equals('GLOB', reftype $obj);
+    $self->assert_not_null($obj->fileno);
+
+    if (${^TAINT}) {
+        $obj->untaint;
+    }
+
+    my $s1 = read $obj, (my $c), 10;
+    $self->assert_equals(10, $s1);
+    $self->assert_equals(10, length($c));
+
+    my $s2 = read $obj, $c, 10, 10;
+    $self->assert_equals(10, $s2);
+    $self->assert_equals(20, length($c));
+
+    if (${^TAINT}) {
+        no warnings;
+        kill 0 * $c;
+    }
+
+    $obj->close;
 
     # tear down
     close $fh_in;
@@ -1573,7 +1649,7 @@ sub test_say {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1589,13 +1665,13 @@ sub test_say {
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     read $f, (my $content), 99999;
     close $f;
     $self->assert_equals("a\nb\nc\n", $content);
 
-    try eval { $obj1->say('WARN'); };
-    catch my $e1;
+    eval { $obj1->say('WARN'); };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
 
     # tear down
@@ -1606,7 +1682,7 @@ sub test_slurp_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1618,7 +1694,7 @@ sub test_slurp_wantscalar {
     $self->assert_not_null($obj->fileno);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my $c = $obj->slurp;
@@ -1626,8 +1702,8 @@ sub test_slurp_wantscalar {
     $self->assert($c =~ tr/\n// > 1, '$c =~ tr/\n// > 1');
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c;
+        no warnings;
+        kill 0 * $c;
     }
 
     $obj->close;
@@ -1640,7 +1716,7 @@ sub test_slurp_wantarray {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1652,7 +1728,7 @@ sub test_slurp_wantarray {
     $self->assert_not_null($obj->fileno);
 
     if (${^TAINT}) {
-	$obj->untaint;
+        $obj->untaint;
     }
 
     my @c = $obj->slurp;
@@ -1660,8 +1736,8 @@ sub test_slurp_wantarray {
     $self->assert($c[0] =~ tr/\n// == 1, '$c[0] =~ tr/\n// == 1');
 
     if (${^TAINT}) {
-	no warnings;
-	kill 0 * $c[0];
+        no warnings;
+        kill 0 * $c[0];
     }
 
     $obj->close;
@@ -1674,7 +1750,7 @@ sub test_slurp_from_fd_wantscalar {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $c = IO::Moose::Handle->slurp($fh_in);
     $self->assert(length $c > 1, 'length $c > 1');
@@ -1688,10 +1764,10 @@ sub test_truncate {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
-    print $fh_out "ABCDEFGHIJ" or throw 'Exception::IO';
-    close $fh_out or throw 'Exception::IO';
-    open $fh_out, '>>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
+    print $fh_out "ABCDEFGHIJ" or Exception::IO->throw;
+    close $fh_out or Exception::IO->throw;
+    open $fh_out, '>>', $filename_out or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1706,13 +1782,13 @@ sub test_truncate {
 
     $obj->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     read $f, (my $content), 99999;
     close $f;
     $self->assert_equals("ABCDE\000\000\000\000\000", $content);
 
-    try eval { $obj->truncate(1); };
-    catch my $e1;
+    eval { $obj->truncate(1); };
+    my $e1 = Exception::Base->catch;
     # Bad file descriptor
     $self->assert_equals('Exception::IO', ref $e1);
 
@@ -1724,9 +1800,9 @@ sub test_stat {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
-    try eval {
+    eval {
         my $obj = IO::Moose::Handle->new;
         $self->assert_not_null($obj);
         $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
@@ -1741,17 +1817,17 @@ sub test_stat {
 
         $obj->close;
 
-        open my $f, '<', $filename_in or throw 'Exception::IO';
+        open my $f, '<', $filename_in or Exception::IO->throw;
         read $f, (my $content), 99999;
         close $f;
         $self->assert_equals(length($content), $st->size);
 
-        try eval { $obj->stat; };
-        catch my $e1;
+        eval { $obj->stat; };
+        my $e1 = Exception::Base->catch;
         # Bad file descriptor
         $self->assert_equals('Exception::Fatal', ref $e1);
     };
-    catch my $e, ['Exception::Fatal'];
+    my $e = Exception::Base->catch( ['Exception::Fatal'] );
 
     # tear down
     close $fh_in;
@@ -1761,7 +1837,7 @@ sub test_error {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
 
@@ -1780,14 +1856,14 @@ sub test_error {
     $self->assert_equals(0, $obj1->error);
 
     eval {
-	$obj1->getline;
+        $obj1->getline;
     };
 
     $self->assert_equals(1, $obj1->error);
     $self->assert_equals(1, $obj1->error);
     $self->assert_equals(0, $obj1->clearerr);
     $self->assert_equals(0, $obj1->error);
-    
+
     $obj1->close;
     $self->assert_equals(-1, $obj1->error);
     $self->assert_equals(-1, $obj1->clearerr);
@@ -1801,7 +1877,7 @@ sub test_sync {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1815,38 +1891,38 @@ sub test_sync {
 
     $self->assert_not_null($obj1->print('a'));
 
-    my $c1 = try eval {
-	$obj1->sync;
+    my $c1 = eval {
+        $obj1->sync;
     };
-    catch my $e1;
+    my $e1 = Exception::Base->catch;
 
-    if (ref $e1 eq 'Exception::Fatal') {
-	# skip: unimplemented
+    if (ref $e1 eq 'Exception::Unimplemented') {
+        # skip: unimplemented
     }
     elsif ($e1) {
-	throw $e1;
+        throw $e1;
     }
     else {
-	$self->assert($c1, '$c1');
+        $self->assert($c1, '$c1');
     }
-    
+
     $obj1->close;
 
-    my $c2 = try eval {
-	$obj1->sync;
+    my $c2 = eval {
+        $obj1->sync;
     };
-    catch my $e2;
+    my $e2 = Exception::Base->catch;
 
-    if (ref $e1 eq 'Exception::Fatal') {
-	# skip: unimplemented
+    if (ref $e1 eq 'Exception::Unimplemented') {
+        # skip: unimplemented
     }
     elsif ($e1) {
-	throw $e1;
+        throw $e1;
     }
     else {
-	$self->assert(!$c2, '!$c2');
+        $self->assert(!$c2, '!$c2');
     }
-    
+
     # tear down
     close $fh_out;
 }
@@ -1855,7 +1931,7 @@ sub test_flush {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1870,7 +1946,7 @@ sub test_flush {
     $self->assert_not_null($obj1->print('a'));
     $self->assert_not_null($obj1->print('b'));
 
-    open my $f1, '<', $filename_out or throw 'Exception::IO';
+    open my $f1, '<', $filename_out or Exception::IO->throw;
     read $f1, (my $content1), 99999;
     close $f1;
     $self->assert_equals('', $content1);
@@ -1878,22 +1954,22 @@ sub test_flush {
     my $c1 = $obj1->flush;
     $self->assert_not_null($c1);
 
-    open my $f2, '<', $filename_out or throw 'Exception::IO';
+    open my $f2, '<', $filename_out or Exception::IO->throw;
     read $f2, (my $content2), 99999;
     close $f2;
     $self->assert_equals('ab', $content2);
 
     $obj1->close;
 
-    open my $f, '<', $filename_out or throw 'Exception::IO';
+    open my $f, '<', $filename_out or Exception::IO->throw;
     read $f, (my $content), 99999;
     close $f;
     $self->assert_equals('ab', $content);
 
-    try eval { $obj1->flush };
-    catch my $e1;
+    eval { $obj1->flush };
+    my $e1 = Exception::Base->catch;
     $self->assert_equals('Exception::Fatal', ref $e1);
-    
+
     # tear down
     close $fh_out;
 }
@@ -1902,7 +1978,7 @@ sub test_printflush {
     my $self = shift;
 
     # set up
-    open $fh_out, '>', $filename_out or throw 'Exception::IO';
+    open $fh_out, '>', $filename_out or Exception::IO->throw;
 
     my $obj1 = IO::Moose::Handle->new;
     $self->assert_not_null($obj1);
@@ -1916,25 +1992,25 @@ sub test_printflush {
 
     $self->assert($obj1->printflush('a'), '$obj1->printflush(\'a\')');
 
-    open my $f1, '<', $filename_out or throw 'Exception::IO';
+    open my $f1, '<', $filename_out or Exception::IO->throw;
     read $f1, (my $content1), 99999;
     close $f1;
     $self->assert_equals('a', $content1);
 
     $self->assert($obj1->printflush('b'), '$obj1->printflush(\'b\')');
-    
-    open my $f2, '<', $filename_out or throw 'Exception::IO';
+
+    open my $f2, '<', $filename_out or Exception::IO->throw;
     read $f2, (my $content2), 99999;
     close $f2;
     $self->assert_equals('ab', $content2);
 
     $obj1->close;
 
-    try eval { $obj1->printflush('c'); };
-    catch my $e1;
+    eval { $obj1->printflush('c'); };
+    my $e1 = Exception::Base->catch;
     # Bad file descriptor
     $self->assert_equals('Exception::Fatal', ref $e1);
-    
+
     # tear down
     close $fh_out;
 }
@@ -1943,9 +2019,9 @@ sub test_blocking {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
-    try eval {
+    eval {
         my $obj = IO::Moose::Handle->new;
         $self->assert_not_null($obj);
         $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
@@ -1968,12 +2044,12 @@ sub test_blocking {
 
         $obj->close;
 
-        try eval { $obj->blocking; };
-        catch my $e1;
+        eval { $obj->blocking; };
+        my $e1 = Exception::Base->catch;
         # Bad file descriptor
         $self->assert_equals('Exception::IO', ref $e1);
     };
-    catch my $e, ['Exception::Fatal'];
+    my $e = Exception::Base->catch( ['Exception::Fatal'] );
 
     # tear down
     close $fh_in;
@@ -1983,7 +2059,7 @@ sub test_untaint {
     my $self = shift;
 
     # set up
-    open $fh_in, '<', $filename_in or throw 'Exception::IO';
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
 
     my $obj = IO::Moose::Handle->new;
     $self->assert_not_null($obj);
@@ -1997,9 +2073,9 @@ sub test_untaint {
     $self->assert_not_equals('', $c1);
 
     if (${^TAINT}) {
-	no warnings;
+        no warnings;
         eval { kill 0 * $c1 };
-	$self->assert_not_equals('', $@);
+        $self->assert_not_equals('', $@);
     }
 
     my $c2 = $obj->untaint;
@@ -2008,7 +2084,7 @@ sub test_untaint {
     my $c3 = $obj->getline;
 
     if (${^TAINT}) {
-	no warnings;
+        no warnings;
         kill 0 * $c3;
     }
 
@@ -2019,17 +2095,17 @@ sub test_untaint {
     $self->assert_not_equals('', $c5);
 
     if (${^TAINT}) {
-	no warnings;
+        no warnings;
         eval { kill 0 * $c5 };
-	$self->assert_not_equals('', $@);
+        $self->assert_not_equals('', $@);
     }
 
     $obj->close;
 
-    try eval { $obj->untaint; };
-    catch my $e1;
+    eval { $obj->untaint; };
+    my $e1 = Exception::Base->catch;
     # Bad file descriptor
-    $self->assert_equals('Exception::Fatal', ref $e1);
+    $self->assert_equals('Exception::IO', ref $e1);
 
     # tear down
     close $fh_in;

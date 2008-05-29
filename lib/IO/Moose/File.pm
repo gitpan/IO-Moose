@@ -2,7 +2,7 @@
 
 package IO::Moose::File;
 use 5.006;
-our $VERSION = 0.04_01;
+our $VERSION = 0.05;
 
 =head1 NAME
 
@@ -91,17 +91,18 @@ has 'layer' =>
     writer  => '_set_layer';
 
 
-use Exception::Base ':all',
+use Exception::Base
     '+ignore_package' => [ __PACKAGE__ ];
 
 
 # Debugging flag
-our $Debug = 0;
+our $Debug;
+BEGIN { eval 'use Smart::Comments;' if $Debug; }
 
 
 # Default constructor
 override 'BUILD' => sub {
-    { no warnings; warn "BUILD @_" if $Debug; }
+    ### BUILD: @_
 
     my ($self, $params) = @_;
     my $hashref = ${*$self};
@@ -130,7 +131,7 @@ override 'BUILD' => sub {
 
 # Constructor for new tmpfile
 sub new_tmpfile {
-    { no warnings; warn "new_tmpfile @_" if $Debug; }
+    ### new_tmpfile: @_
 
     my ($class) = @_;
     $class = blessed $class if blessed $class;
@@ -142,9 +143,9 @@ sub new_tmpfile {
     my $hashref = ${*$self};
 
     my $status;
-    try eval {
+    eval {
         if ($^V ge v5.8) {
-            { no warnings; warn "CORE::open($hashref->{fh}, $hashref->{mode}, undef)" if $Debug; }
+            #### new_tmpfile: "open($hashref->{fh}, $hashref->{mode}, undef)"
             $status = CORE::open($hashref->{fh}, $hashref->{mode}, undef);
         }
         else {
@@ -153,16 +154,12 @@ sub new_tmpfile {
             $status = $hashref->{fh} = File::Temp->tmpfile;
         }
     };
-
-    if (catch my $e) {
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot new_tmpfile'
-            if not defined $e->message;
-        throw $e;
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot new_tmpfile' );
     }
     if (not $status) {
-        throw 'Exception::IO' =>
-              message => 'Cannot new_tmpfile';
+        Exception::IO->throw( message => 'Cannot new_tmpfile' );
     }
 
     # clone standard handler for tied handler
@@ -184,16 +181,16 @@ sub new_tmpfile {
 
 # Wrapper for CORE::open
 sub open {
-    { no warnings; warn "open @_" if $Debug; }
+    ### open: @_
 
     my $self = shift;
 
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw 'Exception::Argument' =>
-          message => 'Usage: $io->open(FILENAME [,MODE [,PERMS]]) or $fh->open(FILENAME, IOLAYERS)'
-        if not blessed $self or @_ < 1 || @_ > 3 || (@_ == 3 and defined $_[1] and $_[1] =~ /:/);
+    Exception::Argument->throw(
+        message => 'Usage: $io->open(FILENAME [,MODE [,PERMS]]) or $fh->open(FILENAME, IOLAYERS)'
+    ) if not blessed $self or @_ < 1 || @_ > 3 || (@_ == 3 and defined $_[1] and $_[1] =~ /:/);
 
     # handle GLOB reference
     my $hashref = ${*$self};
@@ -201,7 +198,7 @@ sub open {
     my ($filename, $mode, $perms) = @_;
 
     my $status;
-    try eval {
+    eval {
         # check constraints
         $filename = $self->_set_filename($filename);
         $mode = defined $mode ? $self->_set_mode($mode) : $self->_clear_mode;
@@ -220,18 +217,14 @@ sub open {
             $status = CORE::open($hashref->{fh}, $mode, $filename);
         }
     };
-
-    if (catch my $e) {
+    if ($@) {
+        my $e = Exception::Fatal->catch;
         $hashref->{error} = 1;
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot open'
-            if not defined $e->message;
-        throw $e;
+        $e->throw( message => 'Cannot open' );
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw 'Exception::IO' =>
-              message => 'Cannot open';
+        Exception::IO->throw( message => 'Cannot open' );
     }
 
     $hashref->{error} = 0;
@@ -260,16 +253,16 @@ sub open {
 
 # Wrapper for CORE::binmode
 sub binmode {
-    warn "binmode @_" if $Debug;
+    ### binmode: @_
 
     my $self = shift;
 
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
-    throw 'Exception::Argument' =>
-          message => 'Usage: $io->binmode([LAYER])'
-        if not blessed $self or @_ > 1;
+    Exception::Argument->throw(
+        message => 'Usage: $io->binmode([LAYER])'
+    ) if not blessed $self or @_ > 1;
 
     # handle GLOB reference
     my $hashref = ${*$self};
@@ -279,7 +272,7 @@ sub binmode {
     $layer = $self->_set_layer($layer) if defined $layer;
 
     my $status;
-    try eval {
+    eval {
         if (defined $layer) {
             $status = CORE::binmode($hashref->{fh}, $layer);
         }
@@ -288,20 +281,40 @@ sub binmode {
         }
     };
 
-    if (catch my $e) {
+    if ($@) {
+        my $e = Exception::Fatal->catch;
         $hashref->{error} = 1;
-        throw 'Exception::Fatal' => $e,
-              message => 'Cannot binmode'
-            if not defined $e->message;
-        throw $e;
+        $e->throw( message => 'Cannot binmode' );
     }
     if (not $status) {
         $hashref->{error} = 1;
-        throw 'Exception::IO' =>
-              message => 'Cannot binmode';
+        Exception::IO->throw( message => 'Cannot binmode' );
     }
 
     return $self;
+}
+
+
+# Overrided static method
+sub slurp {
+    ### slurp: @_
+
+    my $self = shift;
+
+    return $self->SUPER::slurp(@_) if ref $self;
+
+    my ($filename) = shift;
+
+    my $file;
+    eval {
+        $file = $self->new( filename => $filename, @_ );
+    };
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot slurp' );
+    }
+
+    return $file->slurp;
 }
 
 
@@ -454,6 +467,18 @@ Returns self object.
 
   $io = IO::Moose::File->new( filename => "/var/tmp/fromdos.txt" );
   $io->binmode(":crlf");
+
+=item IO::Moose::File-E<gt>slurp(filename =E<gt> I<filename> [, I<args>])
+
+Opens the file, reads whole content and returns its content as a scalar
+in scalar context or as an array in array context (like B<getlines>
+method).
+
+  @passwd = IO::Moose::File->slurp( filename => "/etc/passwd" );
+
+Additional arguments will be passed to constructor:
+
+  $hostname = IO::Moose::File->slurp( filename => "/etc/hostname", autochomp => 1 );
 
 =back
 

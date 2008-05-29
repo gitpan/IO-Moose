@@ -12,15 +12,21 @@ my $build = Module::Build->new(
     license => 'perl',
     requires => {
         'perl'                    => 5.006,
-        'Exception::Base'         => 0.15,
-        'Exception::System'       => 0.0801,
+        'Exception::Base'         => 0.17,
+        'Exception::System'       => 0.09,
+        'Exception::Died'         => 0.02,
         'File::Stat::Moose'       => 0,
         'MooseX::GlobRef::Object' => 0.0203,
     },
     optional => {
+	'Smart::Comments'         => 0,
     },
     build_requires => {
+        'Exception::Warning'      => 0,
         'Test::Unit::Lite'        => 0.09,
+    },
+    conflicts => {
+        'Fatal::Exception'        => '< 0.03',
     },
     create_makefile_pl => 'traditional',
     create_readme => 1,
