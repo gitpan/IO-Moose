@@ -1,6 +1,6 @@
 ---
 name: IO-Moose
-version: 0.05
+version: 0.06
 author:
   - 'Piotr Roszatycki <dexter@debian.org>'
 abstract: Reimplementation of IO::* with improvements
@@ -8,32 +8,47 @@ license: perl
 resources:
   license: http://dev.perl.org/licenses/
 requires:
-  Exception::Base: 0.17
-  Exception::Died: 0.02
-  Exception::System: 0.09
-  File::Stat::Moose: 0
-  MooseX::GlobRef::Object: 0.0203
-  perl: 5.006
+  Exception::Argument: 0
+  Exception::Base: 0.21
+  Exception::Died: 0
+  Exception::Fatal: 0
+  Exception::System: 0.11
+  File::Stat::Moose: 0.03
+  MooseX::GlobRef::Object: 0.03
+  Task::Weaken: 0
+  Test::Assert: 0.04
+  constant::boolean: 0
+  maybe: 0
+  perl: 5.008
 build_requires:
   Exception::Warning: 0
-  Test::Unit::Lite: 0.09
-conflicts:
-  Fatal::Exception: < 0.03
+  Test::Unit::Lite: 0.11
+  parent: 0
 provides:
   IO::Moose:
     file: lib/IO/Moose.pm
-    version: 0.05
+    version: 0.06
   IO::Moose::File:
     file: lib/IO/Moose/File.pm
-    version: 0.05
+    version: 0.06
   IO::Moose::Handle:
     file: lib/IO/Moose/Handle.pm
-    version: 0.05
-  IO::Moose::Handle::Syscall:
-    file: lib/IO/Moose/Handle.pm
+    version: 0.06
   IO::Moose::Seekable:
     file: lib/IO/Moose/Seekable.pm
-    version: 0.05
+    version: 0.06
+  MooseX::Types::CanonOpenModeStr:
+    file: lib/MooseX/Types/CanonOpenModeStr.pm
+    version: 0.06
+  MooseX::Types::OpenModeStr:
+    file: lib/MooseX/Types/OpenModeStr.pm
+    version: 0.06
+  MooseX::Types::OpenModeWithLayerStr:
+    file: lib/MooseX/Types/OpenModeWithLayerStr.pm
+    version: 0.06
+  MooseX::Types::PerlIOLayerStr:
+    file: lib/MooseX/Types/PerlIOLayerStr.pm
+    version: 0.06
 generated_by: Module::Build version 0.280801
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

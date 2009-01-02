@@ -1,8 +1,6 @@
 #!/usr/bin/perl -c
 
 package IO::Moose;
-use 5.006;
-our $VERSION = 0.05;
 
 =head1 NAME
 
@@ -16,9 +14,9 @@ IO::Moose - Reimplementation of IO::* with improvements
 
 =head1 DESCRIPTION
 
-B<IO::Moose> provides a simple mechanism to load several modules in one go.
+C<IO::Moose> provides a simple mechanism to load several modules in one go.
 
-B<IO::Moose::*> classes provide an interface mostly compatible with L<IO>. 
+C<IO::Moose::*> classes provide an interface mostly compatible with L<IO>.
 The differences:
 
 =over
@@ -34,16 +32,12 @@ exception on failure.
 
 =item *
 
-The modifiers like B<input_record_separator> are supported on per-filehandler
+The modifiers like C<input_record_separator> are supported on per file handler
 basis.
 
 =item *
 
-It also implements additional methods like B<say>, B<slurp>.
-
-=item *
-
-It is pure-Perl implementation.
+It also implements additional methods like C<say>, C<slurp>.
 
 =back
 
@@ -51,20 +45,31 @@ It is pure-Perl implementation.
 
 =cut
 
+use 5.006;
+use strict;
+use warnings;
 
-use Exception::Base
+our $VERSION = 0.06;
+
+use Class::MOP;
+
+
+use Exception::Base (
     '+ignore_package' => [ __PACKAGE__ ],
-    'Exception::Fatal::Compilation' => { isa => 'Exception::Died' };
+);
 
+
+## no critic (RequireArgUnpacking)
 
 sub import {
     shift;
 
-    my @l = @_ ? @_ : qw< Handle File >;
+    my @modules = @_ ? @_ : qw{ Handle File };
 
-    eval join("", map { "require IO::Moose::" . (/(\w+)/)[0] . ";\n" } @l)
-        or Exception::Fatal::Compilation->throw( message => __PACKAGE__ );
-}
+    Class::MOP::load_class($_) foreach ( map { 'IO::Moose::' . $_ } @modules );
+
+    return 1;
+};
 
 
 1;
@@ -72,15 +77,45 @@ sub import {
 
 __END__
 
-=head1 EXCEPTIONS
+=begin umlwiki
 
-=over
+= Component Diagram =
 
-=item Exception::Fatal::Compilation
+[              <<library>>           {=}
+                IO::Moose
+ ---------------------------------------
+ IO::Moose
+ IO::Moose::Handle
+ IO::Moose::Seekable
+ IO::Moose::File
+ MooseX::Types::OpenModeStr
+ MooseX::Types::CanonOpenModeStr
+ MooseX::Types::OpenModeWithLayerStr
+ MooseX::Types::PerlIOLayerStr
+ <<type>> OpenModeStr
+ <<type>> CanonOpenModeStr
+ <<type>> OpenModeWithLayerStr
+ <<type>> PerlIOLayerStr
+                                        ]
 
-Thrown whether compilation error is occurred.
+[<<type>> OpenModeStr] ---|> [<<type>> Str]
 
-=back 
+[<<type>> CanonOpenModeStr] ---|> [<<type>> ModeStr]
+
+[<<type>> OpenModeWithLayerStr] ---|> [<<type>> Str]
+
+[<<type>> PerlIOLayerStr] ---|> [<<type>> Str]
+
+= Class Diagram =
+
+[ <<utility>>
+   IO::Moose
+ ------------
+ ------------ ]
+
+[IO::Moose] ---> <<use>> [Class::MOP]
+
+=end umlwiki
 
 =head1 IMPORTS
 
@@ -88,8 +123,8 @@ Thrown whether compilation error is occurred.
 
 =item use IO::Moose [I<modules>]
 
-Loads a modules from B<IO::Moose::*> hierarchy.  I.e. B<Handle> parameter
-loads B<IO::Moose::Handle> module.  
+Loads a modules from C<IO::Moose::*> hierarchy.  I.e. C<Handle> parameter
+loads C<IO::Moose::Handle> module.
 
   use IO::Moose 'Handle', 'File';  # loads IO::Moose::Handle and ::File.
 
@@ -102,16 +137,6 @@ If I<modules> list is empty, it loads following modules at default:
 =item * IO::Moose::File
 
 =back
-
-=back
-
-=head1 EXCEPTIONS
-
-=over
-
-=item Exception::Fatal::Compilation
-
-Thrown if there was a problem during compilation.
 
 =back
 
@@ -131,7 +156,7 @@ Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright 2008, 2009 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

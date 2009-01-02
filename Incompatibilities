@@ -1,0 +1,66 @@
+------------------------------------------------------------------------
+0.05 -> 0.06
+
+* Attribute "file" replaced attribute "fd" and "filename".  Attribute "fd"
+  doesn't support string values.
+
+  Was:
+
+  $in = IO::Moose::File->new( filename => '/etc/passwd' );
+  $out = IO::Moose::Handle->new( fd => 'STDOUT' );
+
+  Should be:
+
+  $in = IO::Moose::File->new( file => '/etc/passwd' );
+  $out = IO::Moose::Handle->new( file => \*STDOUT );
+
+* Method "fileno" does not return undef if file handler is closed.
+
+  Was:
+
+  $obj = IO::Moose::Handle->new();
+  assert_not_null($obj->fileno);
+
+  Should be:
+
+  $obj = IO::Moose::Handle->new();
+  assert_false($obj->opened);
+
+* Methods "error" and "clearerr" do not return undef if file handler is
+  closed.
+
+  Was:
+
+  $obj = IO::Moose::Handle->new();
+  assert_equals(-1, $obj->error);
+
+  Should be:
+
+  $obj = IO::Moose::Handle->new();
+  assert_raises( ['Exception::IO'], sub {
+    $obj->error
+  } );
+
+* Attribute "tainted" replaced "untaint".  Method "taint" is removed.
+
+  Was:
+
+  $obj = IO::Moose::File->new( untaint => 1 );
+  $obj->taint;
+
+  Should be:
+
+  $obj = IO::Moose::File->new( tainted => 0 );
+  # $obj->taint doesn't work anymore. You need to recreate the object.
+
+* Static method "slurp" takes hash as argument.
+
+  Was:
+
+  $passwd = IO::Moose::File->slurp( "/etc/passwd" );
+
+  Should be:
+
+  $passwd = IO::Moose::File->slurp( file => "/etc/passwd" );
+
+------------------------------------------------------------------------

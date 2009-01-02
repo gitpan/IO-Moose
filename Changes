@@ -1,4 +1,59 @@
 ------------------------------------------------------------------------
+0.06 | Piotr Roszatycki <dexter@debian.org> | 2009-01-01
+
+Incompatibilities:
+
+* Attribute "file" replaced attribute "fd" and "filename".  Attribute "fd"
+  doesn't support string values.
+* Method "fileno" does not return undef if file handler is closed.
+* Methods "error" and "clearerr" do not return undef if file handler is
+  closed.
+* Attribute "tainted" replaced "untaint".  Method "taint" is removed.
+* Static method "slurp" takes hash as argument.
+
+See Incompatibilities file for more details.
+
+Changes:
+
+* IO::Moose:
+  * Class::MOP::load_class is used instead eval "require ...".
+
+* IO::Moose::Handle:
+  * IO::Moose::Handle is a IO::Handle also.
+  * Types are moved to MooseX::Types::* packages.
+  * Static method "slurp" takes hash as argument.
+  * Methods "read", "write", "sysread" and "syswrite" returns number of
+    processed bytes and do not throw an exception if zero bytes was processed.
+  * Attribute "file" replaced attribute "fd".
+  * Attribute "tainted" replaced attribute "untaint".
+  * New attibute "blocking".
+  * Method "taint" is removed.
+  * Method "untaint" uses IO::Handle::untaint.
+  * Method "fdopen" cannot be called as static method.
+  * Method "fileno" throws an exception if handle is closed.
+  * Methods "error" and "clearerr" returns false value if handle is closed.
+  * Methods "sync" and "blocking" call IO::Handle.
+  * Additional arguments for "slurp" static method are passed to constructor.
+  * Attributes "_error" and "_ungetc_buffer" are prefixed with underscore.
+  * Attributes "format_line_break_characters" and "format_formfeed" can be set
+    per file handle.
+  * Types "ModeStr" and "CanonModeStr" are renamed to "OpenModeStr" and
+    "CanonOpenModeStr".
+
+* IO::Moose::Seekable:
+  * Methods "sysseek" and "tell" returns simple numeric "0".
+
+* IO::Moose::File:
+  * Constructor "new_tmpfile" takes arguments for File::Temp->new.
+  * Types are moved to MooseX::Types::* packages.
+  * Types "LayerStr" and "LayerModeStr" are renamed to "PerlIOLayerStr" and
+    "OpenModeWithLayerStr".
+
+* Requires Exception::Assertion, Exception::Fatal, constant::boolean and
+  Test::Assert.
+* Build requires parent.
+
+------------------------------------------------------------------------
 0.05 | Piotr Roszatycki <dexter@debian.org> | 2008-05-29
 
 New:

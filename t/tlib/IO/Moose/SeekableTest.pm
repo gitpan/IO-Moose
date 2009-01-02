@@ -3,16 +3,14 @@ package IO::Moose::SeekableTest;
 use strict;
 use warnings;
 
-use base 'Test::Unit::TestCase';
+use parent 'Test::Unit::TestCase';
+use Test::Assert ':all';
 
 use IO::Moose::Handle;
-use Exception::Base;
-
-use File::Temp 'tempfile';
 
 use Scalar::Util 'reftype';
 
-BEGIN { eval "use Fcntl 'SEEK_SET', 'SEEK_CUR', 'SEEK_END'"; }
+use maybe Fcntl => ':seek';
 
 {
     package IO::Moose::SeekableTest::Test1;
@@ -26,407 +24,416 @@ BEGIN { eval "use Fcntl 'SEEK_SET', 'SEEK_CUR', 'SEEK_END'"; }
     use Scalar::Util 'weaken';
 
     sub fdopen {
-        my $self = shift;
-        my ($fd, $mode) = @_;
+        my ($self, $fd, $mode) = @_;
         my $hashref = ${*$self};
-        $mode = "<" unless $mode;
+        $mode = '<' unless $mode;
+        $mode =~ s/^r(\+?)$/$1</;
+        $mode =~ s/^w(\+?)$/$1>/;
+        $mode =~ s/^a(\+?)$/$1>>/;
         my $fileno = CORE::fileno $fd;
-        CORE::open $hashref->{fh}, "$mode&=$fileno";
+        CORE::open $hashref->{fh}, "$mode&=$fileno"
+            or Exception::IO->throw;
         my $newfd = CORE::fileno $hashref->{fh};
-        CORE::open *$self, "$mode&=$newfd";
+        CORE::open *$self, "$mode&=$newfd"
+            or Exception::IO->throw;
         tie *$self, blessed $self, $self;
-    }
+    };
 
     sub TIEHANDLE {
         my ($class, $instance) = @_;
         my $self = \$instance;
         weaken $instance;
         return bless $self => $class;
-    }
+    };
 
     sub close {
-        my $self = shift;
+        my ($self) = @_;
         my $hashref = ${*$self};
         CORE::close $hashref->{fh};
-    }
+    };
 
     sub fileno {
-        my $self = shift;
+        my ($self) = @_;
         my $hashref = ${*$self};
         return CORE::fileno $hashref->{fh};
-    }
+    };
 
     sub readline {
-        my $self = shift;
+        my ($self) = @_;
         my $hashref = ${*$self};
         return CORE::readline $hashref->{fh};
-    }
+    };
 
     sub getc {
-        my $self = shift;
+        my ($self) = @_;
         my $hashref = ${*$self};
         return CORE::getc $hashref->{fh};
-    }
+    };
 
     sub sysread {
-        my $self = shift;
+        my ($self) = @_;
         my $hashref = ${*$self};
-        return defined $_[2]
-            ? CORE::sysread $hashref->{fh}, $_[0], $_[1], $_[2]
-            : CORE::sysread $hashref->{fh}, $_[0], $_[1];
-    }
-}
+        return defined $_[3]
+               ? CORE::sysread $hashref->{fh}, $_[1], $_[2], $_[3]
+               : CORE::sysread $hashref->{fh}, $_[1], $_[2];
+    };
+};
 
-my ($filename_in, $fh_in, $filename_out, $fh_out);
+my ($filename_in, $fh_in, $obj);
 
 sub set_up {
     $filename_in = __FILE__;
-    ((my $tmp), $filename_out) = tempfile;
-    select select $fh_in;
-    select select $fh_out;
-}
+
+    open $fh_in, '<', $filename_in or Exception::IO->throw;
+
+    $obj = IO::Moose::SeekableTest::Test1->new;
+    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    assert_equals('GLOB', reftype $obj);
+
+    $obj->fdopen($fh_in, 'r');
+    assert_not_null($obj->fileno);
+};
 
 sub tear_down {
+    $obj = undef;
+
     close $fh_in;
-    close $fh_out;
-    unlink $filename_out;
-}
+};
 
 sub test___isa {
-    my $self = shift;
-    my $obj = IO::Moose::Handle->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::Handle"), '$obj->isa("IO::Moose::Handle")');
-}
+    assert_isa('Moose::Object', $obj);
+    assert_true($obj->does("IO::Moose::Seekable"), 'obj->does("IO::Moose::Seekable")');
+};
 
 sub test___Fcntl {
-    my $self = shift;
-    $self->assert_not_null(eval "SEEK_SET", 'SEEK_SET');
-    $self->assert_not_null(eval "SEEK_CUR", 'SEEK_CUR');
-    $self->assert_not_null(eval "SEEK_END", 'SEEK_END');
-    $self->assert_not_equals(eval "SEEK_SET", eval "SEEK_CUR");
-    $self->assert_not_equals(eval "SEEK_SET", eval "SEEK_END");
-    $self->assert_not_equals(eval "SEEK_CUR", eval "SEEK_END");
-}
+    assert_not_null(eval { __PACKAGE__->SEEK_SET });
+    assert_not_null(eval { __PACKAGE__->SEEK_CUR });
+    assert_not_null(eval { __PACKAGE__->SEEK_END });
+};
 
 sub test_new_empty {
-    my $self = shift;
     my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-}
+    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    assert_equals('GLOB', reftype $obj);
+};
 
 sub test_seek {
-    my $self = shift;
+    {
+        my $c = $obj->getc;
+        assert_equals('p', $c);  # <p>ackage
+    };
 
-    # set up
-    open $fh_in, '<', $filename_in or Exception::IO->throw;
+    {
+        assert_true($obj->seek(2, eval { __PACKAGE__->SEEK_SET }));
+        my $c = $obj->getc;
+        assert_equals('c', $c);  # pa<c>kage
+    };
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_in);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
+    {
+        assert_true($obj->seek(2, eval { __PACKAGE__->SEEK_CUR }));
+        my $c = $obj->getc;
+        assert_equals('g', $c);  # packa<g>e
+    };
 
-    my $c1 = $obj->getc;
-    $self->assert_equals('p', $c1);  # <p>ackage
-
-    my $c2 = $obj->seek(2, eval "SEEK_SET");
-    $self->assert_not_null($c2);
-    my $c3 = $obj->getc;
-    $self->assert_equals('c', $c3);  # pa<c>kage
-
-    my $c4 = $obj->seek(2, eval "SEEK_CUR");
-    $self->assert_not_null($c4);
-    my $c5 = $obj->getc;
-    $self->assert_equals('g', $c5);  # packa<g>e
-
-    my $c6 = $obj->seek(-2, eval "SEEK_END");
-    $self->assert_not_null($c6);
-    my $c7 = $obj->getc;
-    $self->assert_equals(';', $c7);  # 1<;>\n
+    {
+        assert_true($obj->seek(-2, eval { __PACKAGE__->SEEK_END}));
+        my $c = $obj->getc;
+        assert_equals(';', $c);  # 1<;>\n
+    };
 
     $obj->close;
 
-    eval { $obj->tell; };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e1);
-
-    # tear down
-    close $fh_in;
-}
+    assert_raises( ['Exception::Fatal'], sub {
+        $obj->seek(0, eval { __PACKAGE__->SEEK_SET });
+    } );
+};
 
 sub test_seek_tied {
-    my $self = shift;
+    {
+        my $c = $obj->getc;
+        assert_equals('p', $c);  # <p>ackage
+    };
 
-    # set up
-    open $fh_in, '<', $filename_in or Exception::IO->throw;
+    {
+        assert_true(seek $obj, 2, eval { __PACKAGE__->SEEK_SET });
+        my $c = $obj->getc;
+        assert_equals('c', $c);  # pa<c>kage
+    };
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_in);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
+    {
+        assert_true(seek $obj, 2, eval { __PACKAGE__->SEEK_CUR });
+        my $c = $obj->getc;
+        assert_equals('g', $c);  # packa<g>e
+    };
 
-    my $c1 = $obj->getc;
-    $self->assert_equals('p', $c1);  # <p>ackage
-
-    my $c2 = seek $obj, 2, eval "SEEK_SET";
-    $self->assert_not_null($c2);
-    my $c3 = $obj->getc;
-    $self->assert_equals('c', $c3);  # pa<c>kage
-
-    my $c4 = seek $obj, 2, eval "SEEK_CUR";
-    $self->assert_not_null($c4);
-    my $c5 = $obj->getc;
-    $self->assert_equals('g', $c5);  # packa<g>e
-
-    my $c6 = seek $obj, -2, eval "SEEK_END";
-    $self->assert_not_null($c6);
-    my $c7 = $obj->getc;
-    $self->assert_equals(';', $c7);  # 1<;>\n
+    {
+        assert_true(seek $obj, -2, eval { __PACKAGE__->SEEK_END });
+        my $c = $obj->getc;
+        assert_equals(';', $c);  # 1<;>\n
+    };
 
     $obj->close;
 
-    eval { $obj->tell; };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e1);
-
-    # tear down
-    close $fh_in;
-}
+    assert_raises( ['Exception::Fatal'], sub {
+        seek $obj, 0, eval { __PACKAGE__->SEEK_SET };
+    } );
+};
 
 sub test_seek_fail {
-    my $self = shift;
+    open my $fh_out, '<&=1' or return;
 
-    # set up
-    open $fh_out, '<&=1' or return;
+    $obj = IO::Moose::SeekableTest::Test1->new;
+    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    assert_equals('GLOB', reftype $obj);
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_out);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
+    $obj->fdopen($fh_out, 'r');
+    assert_not_null($obj->fileno);
 
-    eval { $obj->seek(0, eval "SEEK_SET") };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::IO', ref $e1);
+    assert_raises( ['Exception::IO'], sub {
+        $obj->seek(0, eval { __PACKAGE__->SEEK_SET });
+    } );
 
     $obj->close;
 
-    # tear down
     close $fh_out;
-}
+};
+
+sub test_seek_error_args {
+    assert_raises( ['Exception::Argument'], sub {
+        IO::Moose::Seekable->seek(1, 2);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->seek;
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->seek(1);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->seek('STRING', 2);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->seek(1, 'STRING');
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->seek(1, 2, 3);
+    } );
+};
 
 sub test_sysseek {
-    my $self = shift;
+    {
+        $obj->sysread(my $c, 1);
+        assert_equals('p', $c);  # <p>ackage
+    };
 
-    # set up
-    open $fh_in, '<', $filename_in or Exception::IO->throw;
+    {
+        my $p = $obj->sysseek(0, eval { __PACKAGE__->SEEK_SET });
+        assert_num_equals(0, $p);
+        $obj->sysread(my $c, 1);
+        assert_equals('p', $c);  # <p>ackage
+    };
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_in);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
+    {
+        my $p = $obj->sysseek(2, eval { __PACKAGE__->SEEK_SET });
+        assert_equals(2, $p);
+        $obj->sysread(my $c, 1);
+        assert_equals('c', $c);  # pa<c>kage
+    };
 
-    $obj->sysread(my $c1, 1);
-    $self->assert_equals('p', $c1);  # <p>ackage
+    {
+        my $p = $obj->sysseek(2, eval { __PACKAGE__->SEEK_CUR });
+        assert_equals(5, $p);
+        $obj->sysread(my $c, 1);
+        assert_equals('g', $c);  # packa<g>e
+    };
 
-    my $c2 = $obj->sysseek(0, eval "SEEK_SET");
-    $self->assert($c2, '$obj->sysseek(0, SEEK_SET)');
-    $self->assert_num_equals(0, $c2);
-    $obj->sysread(my $c3, 1);
-    $self->assert_equals('p', $c3);  # <p>ackage
+    {
+        my $p = $obj->sysseek(-2, eval { __PACKAGE__->SEEK_END });
+        assert_true($p > 6000, '$p > 6000'); # this file length
+    };
 
-    my $c4 = $obj->sysseek(2, eval "SEEK_SET");
-    $self->assert_equals(2, $c4);
-    $obj->sysread(my $c5, 1);
-    $self->assert_equals('c', $c5);  # pa<c>kage
-
-    my $c6 = $obj->sysseek(2, eval "SEEK_CUR");
-    $self->assert_equals(5, $c6);
-    $obj->sysread(my $c7, 1);
-    $self->assert_equals('g', $c7);  # packa<g>e
-
-    my $c8 = $obj->sysseek(-2, eval "SEEK_END");
-    $self->assert($c8 > 6000, '$c6 > 6000'); # this file length
-    $obj->sysread(my $c9, 1);
-    $self->assert_equals(';', $c9);  # 1<;>\n
+    {
+        $obj->sysread(my $c, 1);
+        assert_equals(';', $c);  # 1<;>\n
+    };
 
     $obj->close;
 
-    eval { $obj->tell; };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e1);
+    assert_raises( ['Exception::Fatal'], sub {
+        $obj->sysseek(0, eval { __PACKAGE__->SEEK_SET });
+    } );
+};
 
-    # tear down
-    close $fh_in;
-}
+sub test_sysseek_error_args {
+    assert_raises( ['Exception::Argument'], sub {
+        IO::Moose::Seekable->sysseek(1, 2);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->sysseek;
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->sysseek(1);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->sysseek('STRING', 2);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->sysseek(1, 'STRING');
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->sysseek(1, 2, 3);
+    } );
+};
 
 sub test_tell {
-    my $self = shift;
+    {
+        my $p = $obj->tell;
+        assert_equals(0, $p);
+        assert_num_equals(0, $p);
+    };
 
-    # set up
-    open $fh_in, '<', $filename_in or Exception::IO->throw;
+    {
+        my $c = $obj->readline;
+        assert_not_equals(0, length $c);
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_in);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
-
-    my $c1 = $obj->tell;
-    $self->assert($c1, '$obj->tell');
-    $self->assert_num_equals(0, $c1);
-
-    my $c2 = $obj->readline;
-    $self->assert_not_equals(0, length $c2);
-
-    my $c3 = $obj->tell;
-    $self->assert_not_equals(0, $c3);
-    $self->assert_equals(length $c2, $c3);
+        my $p = $obj->tell;
+        assert_not_equals(0, $p);
+        assert_equals(length $c, $p);
+    };
 
     $obj->close;
 
-    eval { $obj->tell; };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e1);
-
-    # tear down
-    close $fh_in;
-}
+    assert_raises( ['Exception::Fatal'], sub {
+        $obj->tell;
+    } );
+};
 
 sub test_tell_tied {
-    my $self = shift;
+    {
+        my $p = tell $obj;
+        assert_equals(0, $p);
+        assert_num_equals(0, $p);
+    };
 
-    # set up
-    open $fh_in, '<', $filename_in or Exception::IO->throw;
+    {
+        my $c = $obj->readline;
+        assert_not_equals(0, length $c);
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_in);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
-
-    my $c1 = tell $obj;
-    $self->assert($c1, '$obj->tell');
-    $self->assert_num_equals(0, $c1);
-
-    my $c2 = $obj->readline;
-    $self->assert_not_equals(0, length $c2);
-
-    my $c3 = tell $obj;
-    $self->assert_not_equals(0, $c3);
-    $self->assert_equals(length $c2, $c3);
+        my $p = tell $obj;
+        assert_not_equals(0, $p);
+        assert_equals(length $c, $p);
+    };
 
     $obj->close;
 
-    eval { my $c4 = tell $obj; };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e1);
+    assert_raises( ['Exception::Fatal'], sub {
+        tell $obj;
+    } );
+};
 
-    # tear down
-    close $fh_in;
-}
+sub test_tell_error_args {
+    assert_raises( ['Exception::Argument'], sub {
+        IO::Moose::Seekable->tell;
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->tell(1);
+    } );
+};
 
 sub test_getpos_setpos {
-    my $self = shift;
+    my $p = $obj->getpos;
+    assert_equals(0, $p);
 
-    # set up
-    open $fh_in, '<', $filename_in or Exception::IO->throw;
+    {
+        my $c1 = $obj->getc;
+        assert_equals('p', $c1);  # <p>ackage
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_in);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
+        my $p2 = $obj->setpos($p);
+        assert_true($p2, '$obj->setpos($p)');
 
-    my $p1 = $obj->getpos;
-    $self->assert($p1, '$obj->getpos');
+        my $c2 = $obj->getc;
+        assert_equals('p', $c2);  # <p>ackage
+    };
 
-    my $c2 = $obj->getc;
-    $self->assert_equals('p', $c2);  # <p>ackage
+    {
+        my $p1 = $obj->getpos;
+        assert_true($p1, '$obj->getpos');
 
-    my $c3 = $obj->setpos($p1);
-    $self->assert($c3, '$obj->setpos($p1)');
+        my $c1 = $obj->getc;
+        assert_equals('a', $c1);  # p<a>ckage
 
-    my $c4 = $obj->getc;
-    $self->assert_equals('p', $c4);  # <p>ackage
+        my $p2 = $obj->setpos($p1);
+        assert_true($p2, '$obj->setpos($p1)');
 
-    my $p5 = $obj->getpos;
-    $self->assert($p5, '$obj->getpos');
-    my $c6 = $obj->getc;
-    $self->assert_equals('a', $c6);  # p<a>ckage
-
-    my $c7 = $obj->setpos($p5);
-    $self->assert($c7, '$obj->setpos($p5)');
-
-    my $c8 = $obj->getc;
-    $self->assert_equals('a', $c8);  # p<a>ckage
+        my $c2 = $obj->getc;
+        assert_equals('a', $c2);  # p<a>ckage
+    };
 
     $obj->close;
 
-    eval { $obj->getpos; };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e1);
+    assert_raises( ['Exception::Fatal'], sub {
+        $obj->getpos;
+    } );
 
-    eval { $obj->setpos($p1); };
-    my $e2 = Exception::Base->catch;
-    $self->assert_equals('Exception::Fatal', ref $e2);
-
-    # tear down
-    close $fh_in;
-}
+    assert_raises( ['Exception::Fatal'], sub {
+        $obj->setpos($p);
+    } );
+};
 
 sub test_getpos_fail {
-    my $self = shift;
+    open my $fh_out, '<&=1' or return;
 
-    # set up
-    open $fh_out, '<&=1' or return;
+    $obj = IO::Moose::SeekableTest::Test1->new;
+    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    assert_equals('GLOB', reftype $obj);
 
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $obj->fdopen($fh_out);
-    $self->assert_not_null($obj);
-    $self->assert($obj->isa("IO::Moose::SeekableTest::Test1"), '$obj->isa("IO::Moose::SeekableTest::Test1")');
-    $self->assert_equals('GLOB', reftype $obj);
-    $self->assert_not_null($obj->fileno);
+    $obj->fdopen($fh_out, 'r');
+    assert_not_null($obj->fileno);
 
-    my $p1 = $obj->getpos;
-    $self->assert($p1, '$obj->getpos');
+    my $p = $obj->getpos;
+    assert_equals(0, $p);
 
-    eval { $obj->setpos($p1) };
-    my $e1 = Exception::Base->catch;
-    $self->assert_equals('Exception::IO', ref $e1);
+    assert_raises( ['Exception::IO'], sub {
+        $obj->setpos($p);
+    } );
+};
 
-    $obj->close;
+sub test_getpos_error_args {
+    assert_raises( ['Exception::Argument'], sub {
+        IO::Moose::Seekable->getpos;
+    } );
 
-    # tear down
-    close $fh_out;
-}
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->getpos(1);
+    } );
+};
+
+sub test_setpos_error_args {
+    assert_raises( ['Exception::Argument'], sub {
+        IO::Moose::Seekable->setpos(1);
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->setpos;
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->setpos('STRING');
+    } );
+
+    assert_raises( ['Exception::Argument'], sub {
+        $obj->setpos(1, 2);
+    } );
+};
 
 1;

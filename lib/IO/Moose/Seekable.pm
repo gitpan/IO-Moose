@@ -1,8 +1,6 @@
 #!/usr/bin/perl -c
 
 package IO::Moose::Seekable;
-use 5.006;
-our $VERSION = 0.05;
 
 =head1 NAME
 
@@ -16,8 +14,8 @@ IO::Moose::Seekable - Reimplementation of IO::Seekable with improvements
   with 'IO::Moose::Seekable';
 
   package main;
-  $stdin = My::IO->new( fd=>\*STDIN, mode=>'r' );
-  $stdin->slurp;
+  my $stdin = My::IO->new( file => \*STDIN, mode => 'r' );
+  print $stdin->slurp;
   print $stdin->tell, "\n";
 
 =head1 DESCRIPTION
@@ -44,38 +42,44 @@ exception on failure.
 
 It doesn't export any constants.  Use L<Fcntl> instead.
 
-=item *
-
-It is pure-Perl implementation.
-
 =back
-
-=for readme stop
 
 =cut
 
 
+use 5.008;
+use strict;
 use warnings FATAL => 'all';
+
+our $VERSION = 0.06;
 
 use Moose::Role;
 
 
-use Exception::Base
-    '+ignore_package'     => [ __PACKAGE__ ],
-    'Exception::Fatal'    => { isa => 'Exception::Base' };
+use Exception::Base (
+    '+ignore_package' => [ __PACKAGE__ ],
+);
+use Exception::Argument;
+use Exception::Fatal;
 
 
-use Scalar::Util 'blessed', 'reftype';
+use Scalar::Util 'blessed', 'looks_like_number', 'reftype';
 
 
-# Use Fcntl for setpos
-BEGIN { eval { require Fcntl }; }
+# Use Fcntl for blocking method.
+use Fcntl ();
 
+
+# Assertions
+use Test::Assert ':assert';
 
 # Debugging flag
-our $Debug;
-BEGIN { eval 'use Smart::Comments;' if $Debug; }
+use if $ENV{PERL_DEBUG_IO_MOOSE_SEEKABLE}, 'Smart::Comments';
 
+
+## no critic (ProhibitBuiltinHomonyms)
+## no critic (RequireArgUnpacking)
+## no critic (RequireCheckingReturnValueOfEval)
 
 # Wrapper for CORE::seek
 sub seek {
@@ -87,26 +91,26 @@ sub seek {
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
-          message => 'Usage: $io->seek(POS, WHENCE)'
-    ) if not blessed $self or @_ != 2;
+          message => 'Usage: $io->seek(POS, WHENCE)',
+    ) if not blessed $self or @_ != 2 or not looks_like_number $_[0] or not looks_like_number $_[1];
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $status;
     eval {
         $status = CORE::seek $hashref->{fh}, $_[0], $_[1];
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot seek' );
-    }
     if (not $status) {
-        Exception::IO->throw( message => 'Cannot seek' );
-    }
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot seek' );
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Wrapper for CORE::sysseek
@@ -117,25 +121,25 @@ sub sysseek {
 
     Exception::Argument->throw(
           message => 'Usage: $io->sysseek(POS, WHENCE)'
-    ) if not blessed $self or @_ != 2;
+    ) if not blessed $self or @_ != 2 or not looks_like_number $_[0] or not looks_like_number $_[1];
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    my $status;
+    my $position;
     eval {
-        $status = CORE::sysseek $hashref->{fh}, $_[0], $_[1];
+        $position = CORE::sysseek $hashref->{fh}, $_[0], $_[1];
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
+    if (not $position) {
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot sysseek' );
-    }
-    if (not $status) {
-        Exception::IO->throw( message => 'Cannot sysseek' );
-    }
+    };
+    assert_true($position) if ASSERT;
 
-    return $status;
-}
+    return int $position;
+};
 
 
 # Wrapper for CORE::tell
@@ -154,17 +158,19 @@ sub tell {
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $status;
+    my $position;
     eval {
-        $status = CORE::tell $hashref->{fh};
+        $position = CORE::tell $hashref->{fh};
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
+    if ($@ or $position < 0) {
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot tell' );
-    }
+    };
+    assert_not_null($position) if ASSERT;
 
-    return $status == 0 ? '0 but true' : $status;
-}
+    return $position;
+};
 
 
 # Pure Perl implementation
@@ -180,17 +186,19 @@ sub getpos {
     # handle GLOB reference
     my $hashref = ${*$self};
 
-    my $pos;
+    my $position;
     eval {
-        $pos = $self->tell;
+        $position = $self->tell;
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot getpos' );
-    }
+    if ($@ or $position < 0) {
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot tell' );
+    };
+    assert_not_null($position) if ASSERT;
 
-    return $pos;
-}
+    return $position;
+};
 
 
 # Pure Perl implementation
@@ -201,7 +209,7 @@ sub setpos {
 
     Exception::Argument->throw(
           message => 'Usage: $io->setpos(POS)'
-    ) if not blessed $self or @_ != 1;
+    ) if not blessed $self or @_ != 1 or not looks_like_number $_[0];
 
     my ($pos) = @_;
 
@@ -210,30 +218,52 @@ sub setpos {
 
     my $status;
     eval {
-        $status = $self->seek($pos, &Fcntl::SEEK_SET);
+        $status = $self->seek( $pos, Fcntl::SEEK_SET );
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot getpos' );
-    }
+    if (not $status) {
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot setpos' );
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
-INIT: {
+# Aliasing tie hooks to real functions
+{
     foreach my $func (qw< tell seek >) {
         __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method($func)->body
         );
-    }
-}
+    };
+};
 
 
 1;
 
 
 __END__
+
+=begin umlwiki
+
+= Class Diagram =
+
+[                  <<role>>
+              IO::Moose::Seekable
+ -----------------------------------------------
+ +seek( I<pos> : Int, I<whence> : Int ) : Self
+ +sysseek( I<pos> : Int, I<whence> : Int ) : Int
+ +tell(I<>) : Int
+ +getpos(I<>) : Int
+ +setpos( I<pos> : Int ) : Self
+ -----------------------------------------------
+                                                ]
+
+[IO::Moose::Handle] ---> <<exception>> [Exception::Fatal] [Exception::IO]
+
+=end umlwiki
 
 =head1 BASE CLASSES
 
@@ -249,6 +279,10 @@ L<Moose::Role>
 
 =over
 
+=item Exception::Argument
+
+Thrown whether method is called with wrong argument.
+
 =item Exception::Fatal
 
 Thrown whether fatal error is occurred by core function.
@@ -259,7 +293,7 @@ Thrown whether fatal error is occurred by core function.
 
 =over
 
-=item seek(I<pos>, I<whence>)
+=item seek( I<pos> : Int, I<whence> : Int ) : Self
 
 Seek the file to position I<pos>, relative to I<whence>:
 
@@ -280,34 +314,32 @@ I<pos> is an offset from the current position. (Seek relative to current)
 I<pos> is an offset from the end of the file. (Seek relative to end)
 
 The SEEK_* constants can be imported from the L<Fcntl> module if you don't
-wish to use the numbers 0 1 or 2 in your code.  The SEEK_* constants are more
+wish to use the numbers 0, 1 or 2 in your code.  The SEEK_* constants are more
 portable.
 
 Returns self object on success or throws an exception.
 
-  use Fcntl 'SEEK_END';
+  use Fcntl ':seek';
   $file->seek(0, SEEK_END);
   $file->say("*** End of file");
 
-=item sysseek(I<pos>, I<whence>)
+=item sysseek( I<pos> : Int, I<whence> : Int ) : Int
 
 Uses the system call lseek(2) directly so it can be used with B<sysread> and
 B<syswrite> methods.
 
-Returns the new position or throws an exception.  A position of zero is
-returned as the string "0 but true".
+Returns the new position or throws an exception.
 
-=item tell
+=item tell(I<>) : Int
 
-Returns the current file position, or throws an exception on error.  A
-position of zero is returned as the string "0 but true".
+Returns the current file position, or throws an exception on error.
 
-=item getpos
+=item getpos(I<>) : Int
 
 Returns a value that represents the current position of the file.  This method
 is implemented with B<tell> method.
 
-=item setpos(I<pos>)
+=item setpos( I<pos> : Int ) : Self
 
 Goes to the position stored previously with B<getpos> method.  Returns this
 object on success, throws an exception on failure.  This method is implemented
@@ -328,15 +360,13 @@ L<IO::Seekable>, L<IO::Moose>, L<Moose::Role>.
 
 The API is not stable yet and can be changed in future.
 
-=for readme continue
-
 =head1 AUTHOR
 
 Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright 2008, 2009 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -1,21 +1,17 @@
-#!/usr/bin/perl -I../lib
+#!/usr/bin/perl -Ilib -I../lib
 
 # Usage: slurp file
 
-BEGIN { eval 'use Smart::Comments;' if $ENV{DEBUG}; }
-BEGIN { $IO::Moose::Handle::Debug   = $ENV{DEBUG}; }
-BEGIN { $IO::Moose::Seekable::Debug = $ENV{DEBUG}; }
-BEGIN { $IO::Moose::File::Debug     = $ENV{DEBUG}; }
+use if $ENV{PERL_DEBUG}, 'Smart::Comments';
 
 ### BEGIN
 
 use IO::Moose::File;
 
-eval {
-    ### $ARGV[0]: $ARGV[0]
-    my $file = IO::Moose::File->slurp( $ARGV[0] );
-    ### $file: $file
-};
+### $ARGV[0]: $ARGV[0]
+my $file = IO::Moose::File->slurp( file => $ARGV[0] || die "Usage: $0 *file*\n" );
+### $file: $file
+print $file;
 
 ### $@: "$@"
 

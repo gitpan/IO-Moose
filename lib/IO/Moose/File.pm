@@ -1,8 +1,6 @@
 #!/usr/bin/perl -c
 
 package IO::Moose::File;
-use 5.006;
-our $VERSION = 0.05;
 
 =head1 NAME
 
@@ -11,8 +9,8 @@ IO::Moose::File - Reimplementation of IO::File with improvements
 =head1 SYNOPSIS
 
   use IO::Moose::File;
-  $file = IO::Moose::File->new( filename=>"/etc/passwd" );
-  @passwd = $file->getlines;
+  my $file = IO::Moose::File->new( file => "/etc/passwd" );
+  my @passwd = $file->getlines;
 
 =head1 DESCRIPTION
 
@@ -45,7 +43,11 @@ It is pure-Perl implementation.
 =cut
 
 
+use 5.008;
+use strict;
 use warnings FATAL => 'all';
+
+our $VERSION = 0.06;
 
 use Moose;
 
@@ -54,78 +56,105 @@ extends 'IO::Moose::Handle';
 with 'IO::Moose::Seekable';
 
 
-use Moose::Util::TypeConstraints;
-
-subtype 'LayerModeStr'
-    => as 'Str'
-    => where { /^\+?(<|>>?):?/ };
-
-subtype 'LayerStr'
-    => as 'Str'
-    => where { /^:/ };
+use MooseX::Types::OpenModeWithLayerStr;
+use MooseX::Types::PerlIOLayerStr;
 
 
-has 'mode' => overwrite => 1,
-    isa     => 'Num | LayerModeStr | CanonModeStr',
-    default => '<',
-    coerce  => 1,
-    reader  => 'mode',
-    writer  => '_set_mode',
-    clearer => '_clear_mode';
-
-has 'filename' =>
-    isa     => 'Str',
-    reader  => 'filename',
-    writer  => '_set_filename';
-
-has 'perms' =>
-    isa     => 'Num',
-    default => 0666,
-    reader  => 'perms',
-    writer  => '_set_perms',
-    clearer => '_clear_perms';
-
-has 'layer' =>
-    isa     => 'LayerStr',
-    reader  => 'layer',
-    writer  => '_set_layer';
+use Exception::Base (
+    '+ignore_package' => [ __PACKAGE__, 'Carp', 'File::Temp' ],
+);
 
 
-use Exception::Base
-    '+ignore_package' => [ __PACKAGE__ ];
+# TRUE and FALSE
+use constant::boolean;
 
+use Scalar::Util 'looks_like_number';
+
+
+# For new_tmpfile
+use File::Temp;
+
+
+# Assertions
+use Test::Assert ':assert';
 
 # Debugging flag
-our $Debug;
-BEGIN { eval 'use Smart::Comments;' if $Debug; }
+use if $ENV{PERL_DEBUG_IO_MOOSE_FILE}, 'Smart::Comments';
 
 
-# Default constructor
-override 'BUILD' => sub {
-    ### BUILD: @_
+# File can be also file name or File::Temp object
+has '+file' => (
+    isa     => 'Str | FileHandle | OpenHandle',
+);
 
-    my ($self, $params) = @_;
+# File mode can be also a number or contain PerlIO layer string
+has '+mode' => (
+    isa     => 'Num | OpenModeWithLayerStr | CanonOpenModeStr',
+);
+
+# Deprecated: backward compatibility
+has filename => (
+    is  => 'ro',
+    isa => 'Str',
+);
+
+# Unix perms number for newly created file
+has perms => (
+    is      => 'rw',
+    isa     => 'Num',
+    default => oct(666),
+    reader  => 'perms',
+    writer  => '_set_perms',
+    clearer => '_clear_perms',
+);
+
+# PerlIO layer string
+has layer => (
+    is      => 'rw',
+    isa     => 'PerlIOLayerStr',
+    reader  => 'layer',
+    writer  => '_set_layer',
+);
+
+
+## no critic (ProhibitBuiltinHomonyms)
+## no critic (RequireArgUnpacking)
+## no critic (RequireCheckingReturnValueOfEval)
+
+# Overrided private method called by constructor
+override '_open_file' => sub {
+    #### _open_file: @_
+
+    my ($self) = @_;
+
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    # initialize anonymous handlers
-    select select my $fh;
-    $hashref->{fh} = $fh;
-
-    if (defined $hashref->{filename}) {
+    # Open file with our method
+    if (defined $hashref->{file}) {
         # call fdopen if fd is defined; it also ties handler
         if (defined $hashref->{layer}) {
-            $self->open($hashref->{filename}, $hashref->{mode} . $hashref->{layer});
+            $self->open( $hashref->{file}, $hashref->{mode} . $hashref->{layer} );
         }
         else {
-            $self->open($hashref->{filename}, $hashref->{mode}, $hashref->{perms});
+            $self->open( $hashref->{file}, $hashref->{mode}, $hashref->{perms} );
+        };
+        return TRUE;
+    }
+    elsif (defined $hashref->{filename}) {
+        # deprecated
+        ## no critic (RequireCarping)
+        warn "IO::Moose::File->filename attribute is deprecated. Use file attribute instead";
+        if (defined $hashref->{layer}) {
+            $self->open( $hashref->{filename}, $hashref->{mode} . $hashref->{layer} );
         }
-    }
-    else {
-        # tie handler with proxy class just here
-        tie *$self, blessed $self, $self;
-    }
+        else {
+            $self->open( $hashref->{filename}, $hashref->{mode}, $hashref->{perms} );
+        };
+        return TRUE;
+    };
 
-    return $self;
+    return FALSE;
 };
 
 
@@ -133,122 +162,105 @@ override 'BUILD' => sub {
 sub new_tmpfile {
     ### new_tmpfile: @_
 
-    my ($class) = @_;
-    $class = blessed $class if blessed $class;
+    my $class = shift;
 
-    # create new empty object with new default mode
-    my $self = $class->new(mode => '+>');
+    my $io;
 
-    # handle GLOB reference
-    my $hashref = ${*$self};
-
-    my $status;
     eval {
-        if ($^V ge v5.8) {
-            #### new_tmpfile: "open($hashref->{fh}, $hashref->{mode}, undef)"
-            $status = CORE::open($hashref->{fh}, $hashref->{mode}, undef);
-        }
-        else {
-            # compatibility with Perl 5.6 which doesn't support anonymous open
-            require File::Temp;
-            $status = $hashref->{fh} = File::Temp->tmpfile;
-        }
+        # Pass arguments to File::Temp constructor
+        my $tmp = File::Temp->new(@_);
+
+        # create new empty object with new default mode
+        $io = $class->new( file => $tmp, mode => '+>' );
     };
     if ($@) {
         my $e = Exception::Fatal->catch;
         $e->throw( message => 'Cannot new_tmpfile' );
-    }
-    if (not $status) {
-        Exception::IO->throw( message => 'Cannot new_tmpfile' );
-    }
+    };
+    assert_not_null($io) if ASSERT;
 
-    # clone standard handler for tied handler
-    untie *$self;
-    CORE::close *$self;
-    if ($^V ge v5.8) {
-        CORE::open *$self, "$hashref->{mode}&", $hashref->{fh};
-    }
-    else {
-        # Compatibility with Perl 5.6
-        my $newfd = CORE::fileno $hashref->{fh};
-        CORE::open *$self, "$hashref->{mode}&=$newfd";
-    }
-    tie *$self, blessed $self, $self;
-
-    return $self;
-}
+    return $io;
+};
 
 
 # Wrapper for CORE::open
 sub open {
     ### open: @_
-
     my $self = shift;
 
     # handle tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
-        message => 'Usage: $io->open(FILENAME [,MODE [,PERMS]]) or $fh->open(FILENAME, IOLAYERS)'
-    ) if not blessed $self or @_ < 1 || @_ > 3 || (@_ == 3 and defined $_[1] and $_[1] =~ /:/);
+        message => 'Usage: $io->open(FILENAME [,MODE [,PERMS]]) or $io->open(FILENAME, IOLAYERS)'
+    ) if not blessed $self or @_ < 1 or @_ > 3
+         or (@_ == 3 and (defined $_[1] and $_[1] =~ /:/
+             or defined $_[2] and not looks_like_number $_[2]));
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    my ($filename, $mode, $perms) = @_;
+    my ($file, $mode, $perms) = @_;
+    my $layer = '';
 
     my $status;
     eval {
         # check constraints
-        $filename = $self->_set_filename($filename);
+        $file = $self->_set_file($file);
         $mode = defined $mode ? $self->_set_mode($mode) : $self->_clear_mode;
         $perms = defined $perms ? $self->_set_perms($perms) : $self->_clear_perms;
 
         if ($mode =~ s/(:.*)//) {
-            $self->_set_layer($1);
-            $self->_set_mode($mode);
-        }
+            $layer = $self->_set_layer($1);
+            $mode = $self->_set_mode($mode);
+        };
 
-        if ($mode =~ /^\d+$/) {
-            { no warnings; warn "sysopen($hashref->{fh}, $filename, $mode, $perms)" if $Debug; }
-            $status = sysopen($hashref->{fh}, $filename, $mode, $perms);
-        } else {
-            { no warnings; warn "CORE::open($hashref->{fh}, $mode, $filename)" if $Debug; }
-            $status = CORE::open($hashref->{fh}, $mode, $filename);
+        if ( eval { $file->isa('File::Temp') } ) {
+            # File::Temp is always +>
+            $self->_set_mode('+>');
+            # copy file handle from File::Temp
+            $status = $hashref->{fh} = $file;
+            if ($layer) {
+                $status = CORE::binmode( $hashref->{fh}, $layer );
+            };
         }
+        elsif ($mode =~ /^\d+$/) {
+            ### open: "sysopen(fh, $file, $mode, $perms)"
+            $status = sysopen( $hashref->{fh}, $file, $mode, $perms );
+        }
+        else {
+            ### open: "open(fh, $mode, $file)"
+            $status = CORE::open( $hashref->{fh}, $mode, $file );
+        };
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot open' );
-    }
     if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot open' );
-    }
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot open' );
+    };
+    assert_true($status) if ASSERT;
 
     $hashref->{error} = 0;
 
     # normalize mode string for tied handler
     if ($mode =~ /^\d+$/) {
         $mode = ($mode & 2 ? '+' : '') . ($mode & 1 ? '>' : '<');
-    }
+    };
 
     # clone standard handler for tied handler
     untie *$self;
     CORE::close *$self;
-    if ($^V ge v5.8) {
-        CORE::open *$self, "$mode&", $hashref->{fh};
-    }
-    else {
-        # Compatibility with Perl 5.6
-        my $newfd = CORE::fileno $hashref->{fh};
-        CORE::open *$self, "$mode&=$newfd";
-    }
+
+    CORE::open *$self, "$mode&", $hashref->{fh};
     tie *$self, blessed $self, $self;
 
+    if (${^TAINT} and not $hashref->{tainted}) {
+        $self->untaint;
+    };
+
     return $self;
-}
+};
 
 
 # Wrapper for CORE::binmode
@@ -265,6 +277,7 @@ sub binmode {
     ) if not blessed $self or @_ > 1;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my ($layer) = @_;
@@ -274,67 +287,68 @@ sub binmode {
     my $status;
     eval {
         if (defined $layer) {
-            $status = CORE::binmode($hashref->{fh}, $layer);
+            $status = CORE::binmode( $hashref->{fh}, $layer );
         }
         else {
-            $status = CORE::binmode($hashref->{fh});
-        }
+            $status = CORE::binmode( $hashref->{fh} );
+        };
     };
 
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot binmode' );
-    }
     if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot binmode' );
-    }
+        $hashref->{_error} = 1;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot open' );
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
-# Overrided static method
-sub slurp {
-    ### slurp: @_
-
-    my $self = shift;
-
-    return $self->SUPER::slurp(@_) if ref $self;
-
-    my ($filename) = shift;
-
-    my $file;
-    eval {
-        $file = $self->new( filename => $filename, @_ );
-    };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot slurp' );
-    }
-
-    return $file->slurp;
-}
-
-
-INIT: {
+{
     # Aliasing tie hooks to real functions
     foreach my $func (qw< open binmode >) {
         __PACKAGE__->meta->alias_method(
             uc($func) => __PACKAGE__->meta->get_method($func)->body
         );
-    }
+    };
+};
 
-    # Make immutable finally
-    __PACKAGE__->meta->make_immutable;
-}
+# Make immutable finally
+__PACKAGE__->meta->make_immutable;
 
 
 1;
 
 
 __END__
+
+=begin umlwiki
+
+= Class Diagram =
+
+[               IO::Moose::File
+ -----------------------------------------------
+ +file : Str|FileHandle|OpenHandle {rw, new}
+ +mode : Num|OpenModeWithLayerStr|CanonOpenModeStr = "<" {rw, new}
+ +perms : Num = 0666 {rw, new}
+ +layer : PerlIOLayerStr = "" {rw, new}
+ -----------------------------------------------
+ +new( I<args> : Hash ) : Self
+ +new_tmpfile( I<args> : Hash ) : Self
+ +open( I<file> : Str|FileHandle|OpenHandle , I<mode> : OpenModeWithLayerStr|CanonOpenModeStr = "<" ) : Self
+ +open( I<file> : Str|FileHandle|OpenHandle , I<mode> : Num, I<perms> : Num = 0600 ) : Self
+ +binmode(I<>) : Self
+ +binmode( I<layer> : PerlIOLayerStr ) : Self
+                                                ]
+
+[IO::Moose::File] ---|> [IO::Moose::Handle]
+
+[IO::Moose::File] ---|> <<role>> [IO::Moose::Seekable]
+
+[IO::Moose::File] ---> <<exception>> [Exception::Fatal] [Exception::IO]
+
+=end umlwiki
 
 =head1 BASE CLASSES
 
@@ -356,42 +370,27 @@ L<IO::Moose::Seekable>
 
 =back
 
-=head1 CONSTRAINTS
-
-=over
-
-=item LayerModeStr
-
-Represents canonical mode string with optional PerlIO layers (i.e.
-"<:encoding(UTF-8)").
-
-=item LayerStr
-
-Represents PerlIO layers string (i.e. ":crlf").
-
-=back
-
 =head1 ATTRIBUTES
 
 =over
 
-=item mode (rw, new, default: <)
+=item file : Str|FileHandle|OpenHandle {rw, new}
+
+File (file name, file handle or IO object) as a parameter for new object.
+
+=item mode : Num|OpenModeWithLayerStr|CanonOpenModeStr = "<" {rw, new}
 
 File mode as a parameter for new object.  Can be Perl-style (E<lt>, E<gt>,
 E<gt>E<gt>, etc.) with optional PerlIO layer after colon (i.e.
 "<:encoding(UTF-8)") or C-style (r, w, a, etc.) or decimal number (O_RDONLY,
 O_RDWR, O_CREAT, other constants from standard module L<Fcntl>).
 
-=item filename (rw, new)
-
-File name.
-
-=item perms (rw, new, default: 0666)
+=item perms : Num = 0666 {rw, new}
 
 Permissions to use in case a new file is created and mode was decimal number.
 The permissions are always modified by umask.
 
-=item layer (rw, new)
+=item layer : PerlIOLayerStr = "" {rw, new}
 
 PerlIO layer string.
 
@@ -401,26 +400,32 @@ PerlIO layer string.
 
 =over
 
-=item new
+=item new( I<args> : Hash ) : Self
 
-Creates an object.  If B<filename> is defined, the B<open> method is called;
-if the open fails, the object is destroyed.  Otherwise, it is returned to the
+Creates an object.  If I<file> is defined, the c<open> method is called; if
+the open fails, the object is destroyed.  Otherwise, it is returned to the
 caller.
 
   $io = IO::Moose::File->new;
   $io->open("/etc/passwd");
 
-  $io = IO::Moose::File->new( filename=>"/var/log/perl.log", mode=>"a" );
+  $io = IO::Moose::File->new( file => "/var/log/perl.log", mode => "a" );
 
-=item new_tmpfile
+If I<file> is a L<File::Temp> object, this object is used as I<fh> attribute
+and I<mode> attribute is changed to C<+E<gt>> value.
+
+  $tmp = IO::Moose::File->new( file => File::Temp->new );
+  $tmp->say("This file will be deleted after destroy");
+
+=item new_tmpfile( I<args> : Hash ) : Self
 
 Creates the object with opened temporary and anonymous file for read/write.
 If the temporary file cannot be created or opened, the object is destroyed.
 Otherwise, it is returned to the caller.
 
-It takes no parameters.
+All I<args> will be passed to the L<File::Temp> constructor.
 
-  $io = IO::Moose::File->new_tmpfile;
+  $io = IO::Moose::File->new_tmpfile( UNLINK => 1, SUFFIX => '.jpg' );
   $pos = $io->getpos;  # save position
   $io->say("foo");
   $io->setpos($pos);   # rewind
@@ -432,12 +437,14 @@ It takes no parameters.
 
 =over
 
-=item open(I<filename> [,I<mode> [,I<perms>]])
+=item open( I<file> : Str|FileHandle|OpenHandle , I<mode> : OpenModeWithLayerStr|CanonOpenModeStr = "<" ) : Self
 
-Openes the file and returns self object.  If mode is Perl-style mode string or
-C-style mode string, it uses core B<open> function.  If mode is decimal (it
-can be O_XXX constant from standard module L<Fcntl>) it uses core B<sysopen>
-function with default permissions set to 0666.
+=item open( I<file> : Str|FileHandle|OpenHandle , I<mode> : Num, I<perms> : Num = 0600 ) : Self
+
+Opens the file and returns self object.  If mode is Perl-style mode string or
+C-style mode string, it uses L<perlfunc/open> function.  If mode is decimal
+(it can be C<O_XXX> constant from standard module L<Fcntl>) it uses
+L<perlfunc/sysopen> function with default permissions set to C<0666>.
 
   $io = IO::Moose::File->new;
   $io->open("/etc/passwd");
@@ -449,42 +456,34 @@ function with default permissions set to 0666.
   $io = IO::Moose::File->new;
   $io->open("/etc/hosts", O_RDONLY);
 
-=item binmode([I<layer>])
+=item binmode(I<>) : Self
+
+=item binmode( I<layer> : PerlIOLayerStr ) : Self
 
 Sets binmode on the underlying IO object.  On some systems (in general, DOS
 and Windows-based systems) binmode is necessary when you're not working with
 a text file.
 
-It can also sets PerlIO layer (:bytes, :crlf, :utf8, :encoding(XXX), etc.).
-More details can be found in L<PerlIO::encoding>.
+It can also sets PerlIO layer (C<:bytes>, C<:crlf>, C<:utf8>,
+C<:encoding(XXX)>, etc.). More details can be found in L<PerlIO::encoding>.
 
-In general, b<binmode> should be called after b<open>but before any I/O is done on the filehandle.
+In general, C<binmode> should be called after C<open> but before any I/O is
+done on the file handler.
 
 Returns self object.
 
-  $io = IO::Moose::File->new( filename => "/tmp/picture.png", mode => "w" );
+  $io = IO::Moose::File->new( file => "/tmp/picture.png", mode => "w" );
   $io->binmode;
 
-  $io = IO::Moose::File->new( filename => "/var/tmp/fromdos.txt" );
+  $io = IO::Moose::File->new( file => "/var/tmp/fromdos.txt" );
   $io->binmode(":crlf");
-
-=item IO::Moose::File-E<gt>slurp(filename =E<gt> I<filename> [, I<args>])
-
-Opens the file, reads whole content and returns its content as a scalar
-in scalar context or as an array in array context (like B<getlines>
-method).
-
-  @passwd = IO::Moose::File->slurp( filename => "/etc/passwd" );
-
-Additional arguments will be passed to constructor:
-
-  $hostname = IO::Moose::File->slurp( filename => "/etc/hostname", autochomp => 1 );
 
 =back
 
 =head1 SEE ALSO
 
-L<IO::File>, L<IO::Moose>, L<IO::Moose::Handle>, L<IO::Moose::Seekable>.
+L<IO::File>, L<IO::Moose>, L<IO::Moose::Handle>, L<IO::Moose::Seekable>,
+L<File::Temp>.
 
 =head1 BUGS
 
@@ -498,7 +497,7 @@ Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright 2008, 2009 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

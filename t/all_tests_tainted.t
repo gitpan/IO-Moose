@@ -1,10 +1,15 @@
 #!/usr/bin/perl -T
 
-use 5.006;
-BEGIN { if ($^V and $^V lt v5.8.0) { print "1..0 # Skip Perl is too old\n"; exit 0 } }
-
+use 5.008;
 use strict;
 use warnings;
+
+BEGIN {
+    if (eval { Devel::Cover->VERSION }) {
+        print "1..0 # Skip Tainted mode doesn't work well with Devel::Cover";
+        exit 0;
+    };
+};
 
 use File::Spec;
 use Cwd;
@@ -17,12 +22,12 @@ BEGIN {
     unshift @INC, File::Spec->catdir($cwd, 'lib');
 }
 
-use Test::Unit::Lite;
+use Test::Unit::Lite 0.10;
+use Test::Assert;
 
-use Exception::Base
-    max_arg_nums => 0, max_arg_len => 200, verbosity => 3,
-    '+ignore_package' => [ qr/^Test::Unit::/, 'File::Find', 'main' ];
-use Exception::Warning '%SIG' => 'die';
-use Exception::Died    '%SIG';
+use Exception::Base max_arg_nums => 0, max_arg_len => 200, verbosity => 4;
+use Exception::Warning '%SIG' => 'die', verbosity => 4;
+use Exception::Died '%SIG', verbosity => 4;
+use Exception::Assertion verbosity => 4;
 
 Test::Unit::HarnessUnit->new->start('Test::Unit::Lite::AllTests');

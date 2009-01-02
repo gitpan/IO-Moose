@@ -1,8 +1,6 @@
-#!/usr/bin/perl -I../lib
+#!/usr/bin/perl -Ilib -I../lib
 
 # Usage: uniq_func.pl < file
-
-BEGIN { $IO::Moose::Handle::Debug = $ENV{DEBUG}; }
 
 use IO::Moose::Handle;
 
@@ -14,7 +12,7 @@ while (not eof $stdin) {
     my $line = <$stdin>;
     print $stdout $line if $line ne $prev;
     $prev = $line;
-}
+};
 
 close $stdin;
 close $stdout;

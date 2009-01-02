@@ -1,8 +1,6 @@
 #!/usr/bin/perl -c
 
 package IO::Moose::Handle;
-use 5.006;
-our $VERSION = 0.05;
 
 =head1 NAME
 
@@ -12,21 +10,20 @@ IO::Moose::Handle - Reimplementation of IO::Handle with improvements
 
   use IO::Moose::Handle;
 
-  $fh = IO::Moose::Handle->new;
+  my $fh = IO::Moose::Handle->new;
   $fh->fdopen( fileno(STDIN) );
   print $fh->getline;
-  $file = $fh->slurp;
+  my $content = $fh->slurp;
   $fh->close;
 
-  $fh = IO::Moose::Handle->fdopen( \*STDERR, '>' );
+  my $fh = IO::Moose::Handle->fdopen( \*STDERR, '>' );
   $fh->autoflush(1);
   $fh->say('Some text');
   undef $fh;  # calls close at DESTROY
 
 =head1 DESCRIPTION
 
-This class provides an interface mostly compatible with L<IO::Handle>.  The
-differences:
+This class extends L<IO::Handle> with following differences:
 
 =over
 
@@ -36,118 +33,211 @@ It is based on L<Moose> object framework.
 
 =item *
 
+The C<stat> method returns L<File::Stat::Moose> object.
+
+=item *
+
 It uses L<Exception::Base> for signaling errors. Most of methods are throwing
 exception on failure.
 
 =item *
 
-The modifiers like B<input_record_separator> are supported on per-filehandler
+The modifiers like C<input_record_separator> are supported on per file handle
 basis.
 
 =item *
 
-It also implements additional methods like B<say>, B<slurp>.
-
-=item *
-
-It is pure-Perl implementation.
+It also implements additional methods like C<say>, C<slurp>.
 
 =back
 
-=for readme stop
-
 =cut
 
-
+use 5.008;
+use strict;
 use warnings FATAL => 'all';
+
+our $VERSION = 0.06;
 
 use Moose;
 
-extends 'MooseX::GlobRef::Object';
+extends 'MooseX::GlobRef::Object', 'IO::Handle';
 
 
-use Moose::Util::TypeConstraints;
-
-subtype 'ModeStr'
-    => as 'Str'
-    => where { /^([rwa]\+?|\+?(<|>>?))$/ };
-
-subtype 'CanonModeStr'
-    => as 'Str'
-    => where { /^\+?(<|>>?)$/ };
-
-coerce 'CanonModeStr'
-    => from 'ModeStr'
-        => via { local $_ = $_;
-                 s/^r(\+?)$/$1</;
-                 s/^w(\+?)$/$1>/;
-                 s/^a(\+?)$/$1>>/;
-                 $_ };
+use MooseX::Types::OpenModeStr;
+use MooseX::Types::CanonOpenModeStr;
 
 
-has 'fh' =>
-    reader  => 'fh',
-    writer  => '_set_fh';
-
-has 'fd' =>
-    isa     => 'Str | FileHandle | OpenHandle',
-    is_weak => 1,
-    reader  => 'fd',
-    writer  => '_set_fd';
-
-has 'mode' =>
-    isa     => 'CanonModeStr',
-    default => '<',
-    coerce  => 1,
-    reader  => 'mode',
-    writer  => '_set_mode',
-    clearer => '_clear_mode';
-
-has 'error' =>
-    default => -1;
-
-has 'ungetc_buffer' =>
-    default => "";
-
-has 'autochomp' =>
-    is      => 'rw';
-
-has 'untaint' =>
-    default => 0;
-
-{
-    local $_;
-    has $_ =>
-        clearer => 'clear_' . $_
-        foreach ( qw< format_line_break_characters
-                      format_formfeed
-                      input_record_separator
-                      output_field_separator
-                      output_record_separator > );
-}
+use Exception::Base (
+    '+ignore_package'  => [ __PACKAGE__, qr/^MooseX?::/, qr/^Class::MOP::/ ],
+);
+use Exception::Argument;
+use Exception::Fatal;
 
 
-use Exception::Base
-    '+ignore_package'  => [ __PACKAGE__, qr/^Moose::/, qr/^Class::MOP::/ ],
-    'Exception::Fatal' => { isa => 'Exception::Died' },
-    'Exception::Unimplemented';
-
+# TRUE and FALSE
+use constant::boolean;
 
 use Scalar::Util 'blessed', 'reftype', 'weaken', 'looks_like_number';
 use Symbol       'qualify';
 
 use File::Stat::Moose;
 
-# Use Errno for getc method
-use Errno ();
 
-# Use Fcntl for blocking method
-BEGIN { eval { require Fcntl }; }
+# Use Errno for EBADF error code.
+use Errno;
 
+
+# Assertions
+use Test::Assert ':assert';
 
 # Debugging flag
-our $Debug;
-BEGIN { eval 'use Smart::Comments;' if $Debug; }
+use if $ENV{PERL_DEBUG_IO_MOOSE_HANDLE}, 'Smart::Comments';
+
+
+# Standard handles
+our ($STDIN, $STDOUT, $STDERR);
+
+
+# File to open (descriptor number or file handle)
+has file => (
+    is      => 'rw',
+    isa     => 'Num | FileHandle | OpenHandle',
+    is_weak => 1,
+    reader  => 'file',
+    writer  => '_set_file',
+);
+
+# Deprecated: backward compatibility
+has fd => (
+    is      => 'ro',
+    isa     => 'Num | FileHandle | OpenHandle',
+    is_weak => 1,
+);
+
+# File mode
+has mode => (
+    is      => 'rw',
+    isa     => 'CanonOpenModeStr',
+    default => '<',
+    coerce  => 1,
+    reader  => 'mode',
+    writer  => '_set_mode',
+    clearer => '_clear_mode',
+);
+
+# File handle
+has fh => (
+    is      => 'ro',
+    isa     => 'GlobRef',
+    reader  => 'fh',
+    writer  => '_set_fh',
+);
+
+# Flag that input should be automaticaly chomp-ed
+has autochomp => (
+    is      => 'rw',
+    isa     => 'Bool',
+    default => FALSE,
+);
+
+# Flag that non-blocking IO should be turned on
+has blocking => (
+    is      => 'rw',
+    isa     => 'Bool',
+    default => TRUE,
+    reader  => '_get_blocking',
+    writer  => '_set_blocking',
+);
+
+# Flag that input is tainted.
+has tainted => (
+    is       => 'rw',
+    isa      => 'Bool',
+    default  => !! ${^TAINT},
+);
+
+# Flag if error was occured in IO operation
+has _error => (
+    isa     => 'Bool',
+    default => FALSE,
+);
+
+# Buffer for ungetc
+has _ungetc_buffer => (
+    isa     => 'Str',
+    default => '',
+);
+
+# IO modifiers per file handle with special accessor
+{
+    foreach my $attr ( qw{
+        format_formfeed
+        format_line_break_characters
+        input_record_separator
+        output_field_separator
+        output_record_separator
+    } ) {
+
+        has $attr => (
+            # is    => 'rw',
+            has     => 'Str',
+            clearer => "clear_$attr",
+        );
+
+    };
+};
+
+
+## no critic (ProhibitOneArgSelect)
+## no critic (ProhibitBuiltinHomonyms)
+## no critic (ProhibitCaptureWithoutTest)
+## no critic (RequireArgUnpacking)
+## no critic (RequireCheckingReturnValueOfEval)
+## no critic (RequireLocalizedPunctuationVars)
+
+# Import standard handles
+sub import {
+    my ($pkg, @args) = @_;
+
+    my %vars;
+    foreach my $arg (@args) {
+        if (defined $arg and $arg =~ /^:(all|std)$/) {
+            %vars = map { $_ => 1 } qw{ STDIN STDOUT STDERR };
+        }
+        elsif (defined $arg and $arg =~ /^\$(STDIN|STDOUT|STDERR)$/) {
+            $vars{$1} = 1;
+        }
+        else {
+            Exception::Argument->throw(
+                message => "Unknown argument for import: " . (defined $arg ? $arg : 'undef'),
+            );
+        };
+    };
+
+    my $caller = caller;
+    no strict 'refs';
+
+    foreach my $var (keys %vars) {
+        if ($var eq 'STDIN') {
+            $STDIN  = __PACKAGE__->new( file => \*STDIN,  mode => '<' ) if not defined $STDIN;
+            *{"${caller}::STDIN"}  = \$STDIN;
+        }
+        elsif ($var eq 'STDOUT') {
+            $STDOUT = __PACKAGE__->new( file => \*STDOUT, mode => '>' ) if not defined $STDOUT;
+            *{"${caller}::STDOUT"} = \$STDOUT;
+        }
+        elsif ($var eq 'STDERR') {
+            $STDERR = __PACKAGE__->new( file => \*STDERR, mode => '>' ) if not defined $STDERR;
+            *{"${caller}::STDERR"} = \$STDERR;
+        }
+        else {
+            assert_false("Unknown variable \$$var") if ASSERT;
+        };
+    };
+
+    return TRUE;
+};
 
 
 # Default constructor
@@ -155,23 +245,53 @@ sub BUILD {
     ### BUILD: @_
 
     my ($self, $params) = @_;
+
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    # initialize anonymous handlers
+    # initialize anonymous handle
     select select my $fh;
     $hashref->{fh} = $fh;
 
-    if (defined $hashref->{fd}) {
-        # call fdopen if fd is defined; it also ties handler
-        $self->fdopen($hashref->{fd}, $hashref->{mode});
-    }
-    else {
-        # tie handler with proxy class just here
+    my $is_opened = eval { $self->_open_file };
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot new' );
+    };
+    assert_not_null($is_opened) if ASSERT;
+
+    if (not $is_opened) {
+        # tie handle with proxy class if is not already opened
         tie *$self, blessed $self, $self;
-    }
+    };
 
     return $self;
-}
+};
+
+
+# Open file if is defined
+sub _open_file {
+    #### _open_file: @_
+
+    my ($self) = @_;
+
+    assert_equals('GLOB', reftype $self) if ASSERT;
+    my $hashref = ${*$self};
+
+    if (defined $hashref->{file}) {
+        # call fdopen if file is defined; it also ties handle
+        $self->fdopen($hashref->{file}, $hashref->{mode});
+        return TRUE;
+    }
+    elsif (defined $hashref->{fd}) {
+        ## no critic (RequireCarping)
+        warn "IO::Moose::Handle->fd attribute is deprecated. Use file attribute instead";
+        $self->fdopen($hashref->{fd}, $hashref->{mode});
+        return TRUE;
+    };
+
+    return FALSE;
+};
 
 
 # fdopen constructor
@@ -179,12 +299,19 @@ sub new_from_fd {
     ### new_from_fd: @_
 
     my ($class, $fd, $mode) = @_;
-    $class = blessed $class if blessed $class;
 
-    return defined $mode
-        ? $class->new(fd => $fd, mode => $mode)
-        : $class->new(fd => $fd);
-}
+    my $io = eval { $class->new(
+        file => $fd,
+        defined $mode ? (mode => $mode) : ()
+    ) };
+    if ($@) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot new_from_fd' );
+    };
+    assert_isa(__PACKAGE__, $io) if ASSERT;
+
+    return $io;
+};
 
 
 # fdopen method
@@ -193,40 +320,30 @@ sub fdopen {
 
     my $self = shift;
     Exception::Argument->throw(
-        message => 'Usage: ' . __PACKAGE__ . '->fdopen(FD, [MODE])'
-    ) if @_ < 1 || @_ > 2;
-
-    return $self->new_from_fd(@_) unless blessed $self;  # called as constructor
-
-    # handle GLOB reference
-    my $hashref = ${*$self};
+        message => 'Usage: $io->fdopen(FD, [MODE])',
+    ) if not blessed $self or @_ < 1 or @_ > 2;
 
     my ($fd, $mode) = @_;
 
+    # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
+    my $hashref = ${*$self};
+
     my $status;
     eval {
-        # check constraints
-        $fd = $self->_set_fd($fd);
+        # check constraints and fill attributes
+        $fd = $self->_set_file($fd);
         $mode = defined $mode ? $self->_set_mode($mode) : $self->_clear_mode;
-
-        if ($^V lt v5.8) {
-            # compatibility with Perl 5.6 which doesn't accept "&" in mode
-            if (blessed $fd and $fd->isa(__PACKAGE__)) {
-                $fd = $fd->fileno;
-            } elsif (ref $fd) {
-                $fd = CORE::fileno $fd;
-            }
-        }
 
         if (blessed $fd and $fd->isa(__PACKAGE__)) {
             #### fdopen: "open(fh, $mode&, \$fd->{fh})"
             $status = CORE::open $hashref->{fh}, "$mode&", ${*$fd}->{fh};
         }
-        elsif ((ref $fd || "") eq 'GLOB') {
+        elsif ((ref $fd || '') eq 'GLOB') {
             #### fdopen: "open(fh, $mode&, \\$$fd)"
             $status = CORE::open $hashref->{fh}, "$mode&", $fd;
         }
-        elsif ((reftype $fd || "") eq 'GLOB') {
+        elsif ((reftype $fd || '') eq 'GLOB') {
             #### fdopen: "open(fh, $mode&, *$fd)"
             $status = CORE::open $hashref->{fh}, "$mode&", *$fd;
         }
@@ -234,91 +351,95 @@ sub fdopen {
             #### fdopen: "open(fh, $mode&=$fd)"
             $status = CORE::open $hashref->{fh}, "$mode&=$fd";
         }
-        elsif (not ref $fd) {
-            #### fdopen: "open(fh, $mode&$fd)"
-            $status = CORE::open $hashref->{fh}, "$mode&$fd";
-        }
         else {
-            # try to dereference glob if other failed
-            #### fdopen: "open(fh, $mode&, *$fd)"
-            $status = CORE::open $hashref->{fh}, "$mode&", *$fd;
-        }
+            # should be caught by constraint
+            assert_false("Bad file descriptor");
+        };
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot fdopen' );
-    }
     if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot fdopen' );
-    }
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot fdopen' );
+    };
+    assert_true($status) if ASSERT;
 
-    $hashref->{error} = 0;
+    $hashref->{_error} = FALSE;
 
-    # clone standard handler for tied handler
+    # clone standard handle for tied handle
     untie *$self;
     CORE::close *$self;
-    if ($^V ge v5.8) {
+
+    eval {
         CORE::open *$self, "$mode&", $hashref->{fh};
-    }
-    else {
-        # Compatibility with Perl 5.6
-        my $newfd = CORE::fileno $hashref->{fh};
-        CORE::open *$self, "$mode&=$newfd";
-    }
+    };
+    if ($@) {
+        Exception::Fatal->throw( message => 'Cannot open' );
+    };
+
     tie *$self, blessed $self, $self;
+    assert_true(tied *$self) if ASSERT;
+
+    if (${^TAINT} and not $hashref->{tainted}) {
+        $self->untaint;
+    };
+
+    if (${^TAINT} and not $hashref->{blocking}) {
+        $self->blocking(FALSE);
+    };
 
     return $self;
-}
+};
 
 
 # Standard close IO method / tie hook
 sub close {
     ### close: @_
 
-    my ($self) = @_;
+    my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
         message => 'Usage: $io->close()'
-    ) if not blessed $self;
+    ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     if (not CORE::close $hashref->{fh}) {
-        $hashref->{error} = 1;
+        $hashref->{_error} = TRUE;
         Exception::IO->throw( message => 'Cannot close' );
-    }
+    };
 
-    $hashref->{error} = -1;
+    $hashref->{_error} = FALSE;
 
-    # close also tied handler
+    # close also tied handle
     untie *$self;
     CORE::close *$self;
     tie *$self, blessed $self, $self;
+    assert_true(tied *$self) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Standard eof IO method / tie hook
 sub eof {
     ### eof: @_
 
-    my ($self) = @_;
+    my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
         message => 'Usage: $io->eof()'
-    ) if not blessed $self;
+    ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $status;
@@ -328,38 +449,36 @@ sub eof {
     if ($@) {
         my $e = Exception::Fatal->catch;
         $e->throw( message => 'Cannot eof' );
-    }
+    };
     return $status;
-}
+};
 
 
 # Standard fileno IO method / tie hook
 sub fileno {
     ### fileno: @_
 
-    my ($self) = @_;
+    my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
         message => 'Usage: $io->fileno()'
-    ) if not blessed $self;
+    ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    my $fileno;
-    eval {
-        $fileno = CORE::fileno $hashref->{fh};
+    my $fileno = CORE::fileno $hashref->{fh};
+    if (not defined $fileno) {
+        local $! = Errno::EBADF;
+        Exception::IO->throw( message => 'Cannot fileno' );
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot fileno' );
-    }
 
     return $fileno;
-}
+};
 
 
 # opened IO method
@@ -373,6 +492,7 @@ sub opened {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $fileno;
@@ -381,7 +501,7 @@ sub opened {
     };
 
     return defined $fileno;
-}
+};
 
 
 # Standard print IO method / tie hook
@@ -390,7 +510,7 @@ sub print {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -398,11 +518,12 @@ sub print {
     ) if not blessed $self;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $status;
     eval {
-        # IO modifiers based on object's fields
+        # IO modifiers based on object's attributes
         local $, = exists $hashref->{output_field_separator}
                  ? $hashref->{output_field_separator}
                  : $,;
@@ -410,27 +531,26 @@ sub print {
                  ? $hashref->{output_record_separator}
                  : $\;
 
-        # IO modifiers based on tied fh modifiers
-        my $oldfh = select *$self;
-        my $var = $|;
-        select $hashref->{fh};
-        $| = $var;
-        select $oldfh;
+        {
+            # IO modifiers based on tied fh modifiers
+            my $oldfh = select *$self;
+            my $var = $|;
+            select $hashref->{fh};
+            $| = $var;
+            select $oldfh;
+        };
 
         $status = CORE::print { $hashref->{fh} } @_;
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot print' );
-    }
     if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot print' );
-    }
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot print' );
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Standard printf IO method / tie hook
@@ -439,7 +559,7 @@ sub printf {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -447,74 +567,31 @@ sub printf {
     ) if not ref $self;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    # IO modifiers based on tied fh modifiers
-    my $oldfh = select *$self;
-    my $var = $|;
-    select $hashref->{fh};
-    $| = $var;
-    select $oldfh;
-
-    my $status;
-    eval {
-        $status = CORE::printf { $hashref->{fh} } @_;
-    };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot printf' );
-    }
-    if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot printf' );
-    }
-
-    return $self;
-}
-
-
-# Opposite to read
-sub write {
-    ### write: @_
-
-    my $self = shift;
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->write(BUF [, LEN [, OFFSET]])'
-    ) if not blessed $self or @_ > 3 || @_ < 1;
-
-    # handle GLOB reference
-    my $hashref = ${*$self};
-
-    my ($buf, $len, $offset) = @_;
-
-    my $status;
-    eval {
-        # clean IO modifiers
-        local $\ = "";
-
+    {
         # IO modifiers based on tied fh modifiers
         my $oldfh = select *$self;
         my $var = $|;
         select $hashref->{fh};
         $| = $var;
         select $oldfh;
-
-        $status = CORE::print { $hashref->{fh} } substr($buf, $offset || 0, defined $len ? $len : length($buf));
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot write' );
-    }
+
+    my $status;
+    eval {
+        $status = CORE::printf { $hashref->{fh} } @_;
+    };
     if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot write' );
-    }
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot printf' );
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Wrapper for CORE::write
@@ -528,6 +605,7 @@ sub format_write {
     ) if not blessed $self or @_ > 1;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my ($fmt) = @_;
@@ -537,39 +615,53 @@ sub format_write {
     {
         my ($oldfmt, $oldtopfmt);
 
+        # New format in argument
         if (defined $fmt) {
             $oldfmt = $self->format_name(qualify($fmt, caller));
             $oldtopfmt = $self->format_top_name(qualify($fmt . '_TOP', caller));
         }
 
+        # IO modifiers based on object's attributes
+        my @vars = ($:, $^L);
+
+        # Global variables without local scope
+        $:  = exists $hashref->{format_line_break_characters}
+              ? $hashref->{format_line_break_characters}
+              : $:;
+        $^L = exists $hashref->{format_formfeed}
+              ? $hashref->{format_formfeed}
+              : $^L;
+
         # IO modifiers based on tied fh modifiers
-        my $oldfh = select *$self;
-        my @vars = ($|, $%, $=, $-, $~, $^, $., $:, $^L);
-        select $hashref->{fh};
-        ($|, $%, $=, $-, $~, $^, $., $:, $^L) = @vars;
-        select $oldfh;
+        {
+            my $oldfh = select *$self;
+            my @vars = ($|, $%, $=, $-, $~, $^, $.);
+            select $hashref->{fh};
+            ($|, $%, $=, $-, $~, $^, $.) = @vars;
+            select $oldfh;
+        };
 
         eval {
             $status = CORE::write $hashref->{fh};
         };
         $e = Exception::Fatal->catch;
 
+        # Restore previous settings
+        ($:, $^L) = @vars;
         if (defined $fmt) {
             $self->format_name($oldfmt);
             $self->format_top_name($oldtopfmt);
-        }
-    }
-    if ($e) {
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot format_write' );
-    }
+        };
+    };
     if (not $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot format_write' );
-    }
+        $hashref->{_error} = TRUE;
+        $e = Exception::IO->new unless $e;
+        $e->throw( message => 'Cannot format_write' );
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Wrapper for CORE::readline. Method / tie hook
@@ -578,7 +670,7 @@ sub readline {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -586,6 +678,7 @@ sub readline {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my ($status, @lines, $line, $ungetc_begin, $ungetc_end);
@@ -593,7 +686,7 @@ sub readline {
 
     undef $!;
     eval {
-        # IO modifiers based on object's fields
+        # IO modifiers based on object's attributes
         local $/ = exists $hashref->{input_record_separator}
                  ? $hashref->{input_record_separator}
                  : $/;
@@ -601,72 +694,64 @@ sub readline {
         # scalar or array context
         if ($wantarray) {
             my @ungetc_lines;
-            my $ungetc_string = "";
-            if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
+            my $ungetc_string = '';
+            if (defined $hashref->{_ungetc_buffer} and $hashref->{_ungetc_buffer} ne '') {
                 # iterate for splitted ungetc buffer
                 $ungetc_begin = 0;
-                while (($ungetc_end = index $hashref->{ungetc_buffer}, $/, $ungetc_begin) > -1) {
-                    push @ungetc_lines, substr $hashref->{ungetc_buffer}, $ungetc_begin, $ungetc_end - $ungetc_begin + 1;
+                while (($ungetc_end = index $hashref->{_ungetc_buffer}, $/, $ungetc_begin) > -1) {
+                    push @ungetc_lines, substr $hashref->{_ungetc_buffer}, $ungetc_begin, $ungetc_end - $ungetc_begin + 1;
                     $ungetc_begin = $ungetc_end + 1;
                 }
                 # last line of ungetc buffer is also the first line of real readline output
-                $ungetc_string = substr $hashref->{ungetc_buffer}, $ungetc_begin;
+                $ungetc_string = substr $hashref->{_ungetc_buffer}, $ungetc_begin;
             }
             $status = scalar(@lines = CORE::readline $hashref->{fh});
-            $lines[0] = $ungetc_string . $lines[0] if defined $lines[0] and $lines[0] ne "";
+            $lines[0] = $ungetc_string . $lines[0] if defined $lines[0] and $lines[0] ne '';
             unshift @lines, @ungetc_lines if @ungetc_lines;
             chomp @lines if $hashref->{autochomp};
-            @lines = map { /(.*)/s; $1 } @lines if $hashref->{untaint};
         }
         else {
-            my $ungetc_string = "";
-            if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
-                if (($ungetc_end = index $hashref->{ungetc_buffer}, $/, 0) > -1) {
-                    $ungetc_string = substr $hashref->{ungetc_buffer}, 0, $ungetc_end + 1;
+            my $ungetc_string = '';
+            if (defined $hashref->{_ungetc_buffer} and $hashref->{_ungetc_buffer} ne '') {
+                if (($ungetc_end = index $hashref->{_ungetc_buffer}, $/, 0) > -1) {
+                    $ungetc_string = substr $hashref->{_ungetc_buffer}, 0, $ungetc_end + 1;
                 }
                 else {
-                    $ungetc_string = $hashref->{ungetc_buffer};
-                }
-            }
+                    $ungetc_string = $hashref->{_ungetc_buffer};
+                };
+            };
             if (defined $ungetc_end and $ungetc_end > -1) {
                 # only ungetc buffer
-                $status = 1;
+                $status = TRUE;
                 $line = $ungetc_string;
             }
             else {
                 # also call real readline
                 $status = defined($line = CORE::readline $hashref->{fh});
-                $line = $ungetc_string . (defined $line ? $line : "");
-            }
+                $line = $ungetc_string . (defined $line ? $line : '');
+            };
             chomp $line if $hashref->{autochomp};
-            if ($hashref->{untaint}) {
-                $line =~ /(.*)/s;
-                $line = $1;
-            }
-        }
+        };
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if ($@ or (not $status and $!)) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot readline' );
-    }
-    if (not $status and $!) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot readline' );
-    }
+    };
+    assert_true($status) if ASSERT;
 
     # clean ungetc buffer
-    if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
+    if (defined $hashref->{_ungetc_buffer} and $hashref->{_ungetc_buffer} ne '') {
         if (not $wantarray and $ungetc_end > -1) {
-            $hashref->{ungetc_buffer} = substr $hashref->{ungetc_buffer}, $ungetc_end + 1;
+            $hashref->{_ungetc_buffer} = substr $hashref->{_ungetc_buffer}, $ungetc_end + 1;
         }
         else {
-            $hashref->{ungetc_buffer} = "";
-        }
-    }
+            $hashref->{_ungetc_buffer} = '';
+        };
+    };
 
     return $wantarray ? @lines : $line;
-}
+};
 
 
 # readline method in scalar context
@@ -686,11 +771,12 @@ sub getline {
         }
         else {
             $e->throw( message => 'Cannot getline' );
-        }
-    }
+        };
+        assert_false("Should throw an exception ealier") if ASSERT;
+    };
 
     return $line;
-}
+};
 
 
 # readline method in array context
@@ -714,11 +800,12 @@ sub getlines {
         }
         else {
             $e->throw( message => 'Cannot getlines' );
-        }
-    }
+        };
+        assert_false("Should throw an exception ealier") if ASSERT;
+    };
 
     return @lines;
-}
+};
 
 
 # Add character to the ungetc buffer
@@ -732,15 +819,16 @@ sub ungetc {
     ) if not blessed $self or @_ != 1 or not looks_like_number $_[0];
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my ($ord) = @_;
 
-    $hashref->{ungetc_buffer} = "" if not defined $hashref->{ungetc_buffer};
-    substr($hashref->{ungetc_buffer}, 0, 0) = chr($ord);
+    $hashref->{_ungetc_buffer} = '' if not defined $hashref->{_ungetc_buffer};
+    substr($hashref->{_ungetc_buffer}, 0, 0, chr($ord));
 
     return $self;
-}
+};
 
 
 # Method wrapper for CORE::sysread
@@ -749,7 +837,7 @@ sub sysread {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -757,27 +845,21 @@ sub sysread {
     ) if not ref $self or @_ < 2 or @_ > 3;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    my $status;
+    my $bytes;
     eval {
-        $status = CORE::sysread($hashref->{fh}, $_[0], $_[1], $_[2] || 0);
+        $bytes = CORE::sysread($hashref->{fh}, $_[0], $_[1], $_[2] || 0);
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if (not defined $bytes) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot sysread' );
-    }
-    if (not defined $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot sysread' );
-    }
-    if (defined $_[0] and $hashref->{untaint}) {
-        $_[0] =~ /(.*)/s;
-        $_[0] = $1;
-    }
-    return $status;
-}
+    };
+    assert_not_null($bytes) if ASSERT;
+    return $bytes;
+};
 
 
 # Method wrapper for CORE::syswrite
@@ -786,7 +868,7 @@ sub syswrite {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -794,28 +876,26 @@ sub syswrite {
     ) if not ref $self or @_ < 1 or @_ > 3;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    my $status;
+    my $bytes;
     eval {
         if (defined($_[1])) {
-            $status = CORE::syswrite($hashref->{fh}, $_[0], $_[1], $_[2] || 0);
+            $bytes = CORE::syswrite($hashref->{fh}, $_[0], $_[1], $_[2] || 0);
         }
         else {
-            $status = CORE::syswrite($hashref->{fh}, $_[0]);
-        }
+            $bytes = CORE::syswrite($hashref->{fh}, $_[0]);
+        };
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if (not defined $bytes) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot syswrite' );
-    }
-    if (not defined $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot syswrite' );
-    }
-    return $status;
-}
+    };
+    assert_not_null($bytes) if ASSERT;
+    return $bytes;
+};
 
 
 # Wrapper for CORE::getc. Method / tie hook
@@ -824,7 +904,7 @@ sub getc {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -832,40 +912,38 @@ sub getc {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     undef $!;
     my $char;
     eval {
-        if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
-            $char = substr $hashref->{ungetc_buffer}, 0, 1;
+        if (defined $hashref->{_ungetc_buffer} and $hashref->{_ungetc_buffer} ne '') {
+            $char = substr $hashref->{_ungetc_buffer}, 0, 1;
         }
         else {
             $char = CORE::getc $hashref->{fh};
-        }
+        };
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if ($@ or (not defined $char and $! and $! != Errno::EBADF)) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot getc' );
-    }
-    if (not defined $char and $! and $! != Errno::EBADF) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot getc' );
-    }
+        assert_false("Should throw an exception ealier") if ASSERT;
+    };
 
     # clean ungetc buffer
-    if (defined $hashref->{ungetc_buffer} and $hashref->{ungetc_buffer} ne "") {
-        $hashref->{ungetc_buffer} = substr $hashref->{ungetc_buffer}, 1;
-    }
+    if (defined $hashref->{_ungetc_buffer} and $hashref->{_ungetc_buffer} ne '') {
+        $hashref->{_ungetc_buffer} = substr $hashref->{_ungetc_buffer}, 1;
+    };
 
-    if (defined $char and $hashref->{untaint}) {
-        $char =~ /(.*)/s;
+    if (${^TAINT} and not $hashref->{tainted} and defined $char) {
+        $char =~ /(.*)/;
         $char = $1;
-    }
+    };
 
     return $char;
-}
+};
 
 
 # Method wrapper for CORE::read
@@ -874,7 +952,7 @@ sub read {
 
     my $self = shift;
 
-    # handle tie hook
+    # derefer tie hook
     $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
@@ -882,27 +960,69 @@ sub read {
     ) if not ref $self or @_ < 2 or @_ > 3;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
+    my $bytes;
+    eval {
+        $bytes = CORE::read($hashref->{fh}, $_[0], $_[1], $_[2] || 0);
+    };
+    if (not defined $bytes) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot read' );
+    };
+    assert_not_null($bytes) if ASSERT;
+
+    return $bytes;
+};
+
+
+# Opposite to read
+sub write {
+    ### write: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->write(BUF [, LEN [, OFFSET]])'
+    ) if not blessed $self or @_ > 3 or @_ < 1;
+
+    # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
+    my $hashref = ${*$self};
+
+    my ($buf, $len, $offset) = @_;
+
+    my $bytes;
     my $status;
     eval {
-        $status = CORE::read($hashref->{fh}, $_[0], $_[1], $_[2] || 0);
+        # clean IO modifiers
+        local $\ = '';
+
+        {
+            # IO modifiers based on tied fh modifiers
+            my $oldfh = select *$self;
+            my $var = $|;
+            select $hashref->{fh};
+            $| = $var;
+            select $oldfh;
+        };
+
+        my $output = substr($buf, $offset || 0, defined $len ? $len : length($buf));
+        $bytes = length($output);
+        $status = CORE::print { $hashref->{fh} } $output;
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
-        $e->throw( message => 'Cannot read' );
-    }
-    if (not defined $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot read' );
-    }
-    if (defined $_[0] and $hashref->{untaint}) {
-        $_[0] =~ /(.*)/s;
-        $_[0] = $1;
-    }
-    return $status;
-}
+    if (not $status) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot write' );
+    };
+    assert_true($status) if ASSERT;
+    assert_not_null($bytes) if ASSERT;
+
+    return $bytes;
+};
 
 
 # print with EOL
@@ -921,11 +1041,11 @@ sub say {
         }
         else {
             $e->throw( message => 'Cannot say' );
-        }
-    }
+        };
+    };
 
     return $self;
-}
+};
 
 
 # Read whole file
@@ -933,20 +1053,24 @@ sub slurp {
     ### slurp: @_
 
     my $self = shift;
+    my $class = ref $self || $self || __PACKAGE__;
+    my %args = @_;
 
     Exception::Argument->throw(
-        message => 'Usage: $io->slurp() or ' . __PACKAGE__ . '->slurp(FD)'
-    ) if (not blessed $self and @_ != 1) or (blessed $self and @_ > 0);
+        message => "Usage: \$io->slurp() or $class->slurp(file=>FILE)"
+    ) if not blessed $self and not defined $args{file} or blessed $self and @_ > 0;
 
     if (not blessed $self) {
-
-        my $class = $self;
-        my ($fd) = (@_);
-
-        $self = $class->new(fd => $fd, mode => '<');
-    }
+        $self = eval { $self->new( %args ) };
+        if ($@) {
+            my $e = Exception::Fatal->catch;
+            $e->throw( message => 'Cannot slurp' );
+        };
+        assert_isa(__PACKAGE__, $self) if ASSERT;
+    };
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my (@lines, $string);
@@ -961,17 +1085,17 @@ sub slurp {
         }
         else {
             local $hashref->{input_record_separator} = undef;
-            local $hashref->{autochomp} = 0;
+            local $hashref->{autochomp} = FALSE;
             $string = $self->readline;
-        }
+        };
     };
     if ($@) {
         my $e = Exception::Fatal->catch;
         $e->throw( message => 'Cannot slurp' );
-    }
+    };
 
     return $wantarray ? @lines : $string;
-}
+};
 
 
 # Wrapper for CORE::truncate
@@ -982,27 +1106,25 @@ sub truncate {
 
     Exception::Argument->throw(
         message => 'Usage: $io->truncate(LEN)'
-    ) if not ref $self or @_ != 1;
+    ) if not ref $self or @_ != 1 or not looks_like_number $_[0];
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $status;
     eval {
         $status = CORE::truncate($hashref->{fh}, $_[0]);
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if ($@ or not $status) {
+        $hashref->{_error} = TRUE;
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot truncate' );
-    }
-    if (not defined $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot truncate' );
-    }
+    };
+    assert_true($status) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Interface for File::Stat::Moose
@@ -1016,19 +1138,22 @@ sub stat {
     ) if not ref $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $stat;
     eval {
-        $stat = File::Stat::Moose->new(file => $hashref->{fh});
+        $stat = File::Stat::Moose->new( file => $hashref->{fh} );
     };
     if ($@) {
         my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+        $hashref->{_error} = TRUE;
         $e->throw( message => 'Cannot stat' );
-    }
+    };
+    assert_isa('File::Stat::Moose', $stat) if ASSERT;
+
     return $stat;
-}
+};
 
 
 # Pure Perl implementation
@@ -1042,15 +1167,11 @@ sub error {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    if (defined CORE::fileno $hashref->{fh}) {
-        return $hashref->{error};
-    }
-    else {
-        return -1;
-    }
-}
+    return $hashref->{_error} || ! defined CORE::fileno $hashref->{fh};
+};
 
 
 # Pure Perl implementation
@@ -1064,18 +1185,15 @@ sub clearerr {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    if (defined CORE::fileno $hashref->{fh}) {
-        return $hashref->{error} = 0;
-    }
-    else {
-        return -1;
-    }
-}
+    $hashref->{_error} = FALSE;
+    return defined CORE::fileno $hashref->{fh};
+};
 
 
-# Pure Perl implementation with syscall
+# Uses IO::Handle
 sub sync {
     ### sync: @_
 
@@ -1086,37 +1204,22 @@ sub sync {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $status;
     eval {
-        if (defined &IO::Moose::Handle::Syscall::SYS_fsync and defined CORE::fileno $hashref->{fh}) {
-            $status = syscall(&IO::Moose::Handle::Syscall::SYS_fsync, CORE::fileno $hashref->{fh});
-        }
-        elsif (defined &IO::Handle::fsync) {
-            $status = IO::Handle::fsync($hashref->{fh});
-        }
-        elsif (defined &File::Sync::fsync) {
-            $status = File::Sync::fsync($hashref->{fh});
-        }
-        else {
-            Exception::Unimplemented->throw(
-                message => __PACKAGE__ . '->sync requires syscall.ph or IO::Handle or File::Sync'
-            );
-        }
+        $status = IO::Handle::sync($hashref->{fh});
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if ($@ or not defined $status) {
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $hashref->{_error} = TRUE;
         $e->throw( message => 'Cannot sync' );
-    }
-    if (not defined $status or $status != 0) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot sync' );
-    }
+    };
+    assert_not_null($status) if ASSERT;
 
     return $self;
-}
+};
 
 
 # Pure Perl implementation
@@ -1137,26 +1240,26 @@ sub flush {
     $| = 1;
     $\ = undef;
 
+    my $e;
     my $status;
     eval {
-        $status = CORE::print { $hashref->{fh} } "";
+        $status = CORE::print { $hashref->{fh} } '';
+    };
+    if ($@) {
+        $e = Exception::Fatal->catch;
     };
 
     ($|, $\) = @var;
     select $oldfh;
 
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $hashref->{error} = 1;
+    if ($e) {
+        $hashref->{_error} = TRUE;
         $e->throw( message => 'Cannot flush' );
-    }
-    if (not defined $status) {
-        $hashref->{error} = 1;
-        Exception::IO->throw( message => 'Cannot flush' );
-    }
+    };
+    assert_null($e) if ASSERT;
 
     return $self;
-}
+};
 
 
 # flush + print
@@ -1165,42 +1268,41 @@ sub printflush {
 
     my $self = shift;
 
-    if (ref $self) {
+    if (blessed $self) {
         # handle GLOB reference
+        assert_equals('GLOB', reftype $self) if ASSERT;
         my $hashref = ${*$self};
 
         my $oldfh = select *$self;
         my $var = $|;
         $| = 1;
 
+        my $e;
         my $status;
         eval {
             $status = $self->print(@_);
+        };
+        if ($@) {
+            $e = Exception::Fatal->catch;
         };
 
         $| = $var;
         select $oldfh;
 
-        if ($@) {
-            my $e = Exception::Fatal->catch;
-            if ($e->isa('Exception::Argument')) {
-                $e->throw( message => 'Usage: $io->printflush()' );
-            }
-            else {
-                $e->throw( message => 'Cannot printflush' );
-            }
-        }
+        if ($e) {
+            $e->throw( message => 'Cannot printflush' );
+        };
 
         return $status;
     }
     else {
         local $| = 1;
         return CORE::print @_;
-    }
-}
+    };
+};
 
 
-# Pure Perl implementation
+# Uses IO::Handle
 sub blocking {
     ### blocking: @_
 
@@ -1210,76 +1312,41 @@ sub blocking {
           message => 'Usage: $io->blocking([BOOL])'
     ) if not blessed $self or @_ > 1;
 
-    Exception::Unimplemented->(
-        message => __PACKAGE__ . '->blocking requires Fcntl::F_GETFL'
-    ) if not defined eval { &Fcntl::F_GETFL };
-
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
-    my ($block) = @_;
-    my $newmode;
+    # constraint checking
+    my $old_blocking = $hashref->{blocking};
+    eval {
+        $self->_set_blocking($_[0]);
+    };
+    Exception::Fatal->catch->throw(
+        message => 'Cannot blocking'
+    ) if $@;
 
     my $status;
     eval {
-        my $mode = eval { fcntl($hashref->{fh}, &Fcntl::F_GETFL, 0) };
-
-        Exception::IO->throw(
-            message => 'Cannot blocking: F_GETFL'
-        ) if not defined $mode;
-
-        $status = $newmode = $mode;
-
-        my $O_NONBLOCK = eval { &Fcntl::O_NONBLOCK };
-
-        if (defined $O_NONBLOCK) {
-            my $O_NDELAY = eval { &Fcntl::O_NDELAY };
-            if (not defined $O_NDELAY) {
-                $O_NDELAY = $O_NONBLOCK;
-            }
-            $status = $status & ($O_NONBLOCK | $O_NDELAY) ? 0 : 1;
-
-            if (defined $block) {
-                if ($block == 0) {
-                    $newmode &= ~$O_NDELAY;
-                    $newmode |= $O_NONBLOCK;
-                }
-                elsif ($block > 0) {
-                    $newmode &= ~($O_NDELAY|$O_NONBLOCK);
-                }
-            }
+        if (defined $_[0]) {
+            $status = IO::Handle::blocking($hashref->{fh}, $_[0]);
         }
-        else { # not defined $O_NONBLOCK
-            my $O_NDELAY = &Fcntl::O_NDELAY;
-            $status = $status & $O_NDELAY ? 0 : 1;
-
-            if (defined $block) {
-                if ($block == 0) {
-                    $newmode |= $O_NDELAY;
-                }
-                elsif ($block > 0) {
-                    $newmode &= ~$O_NDELAY;
-                }
-            }
-        }
-
-        if (defined $block and $newmode != $mode) {
-            my $status = eval { fcntl($hashref->{fh}, &Fcntl::F_SETFL, $newmode) };
-            Exception::IO->throw(
-                message => 'Cannot blocking: F_SETFL'
-            ) if not defined $status;
-        }
+        else {
+            $status = IO::Handle::blocking($hashref->{fh});
+        };
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
+    if ($@ or not defined $status) {
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $hashref->{_error} = TRUE;
+        $hashref->{blocking} = $old_blocking;
         $e->throw( message => 'Cannot blocking' );
-    }
+    };
+    assert_not_null($status) if ASSERT;
 
     return $status;
-}
+};
 
 
-# Mark untaint attribute
+# Uses IO::Handle
 sub untaint {
     ### untaint: @_
 
@@ -1290,55 +1357,24 @@ sub untaint {
     ) if not blessed $self or @_ > 0;
 
     # handle GLOB reference
+    assert_equals('GLOB', reftype $self) if ASSERT;
     my $hashref = ${*$self};
 
     my $status;
     eval {
-        $status = CORE::fileno $hashref->{fh};
+        $status = IO::Handle::untaint($hashref->{fh});
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
+    if ($@ or not defined $status or $status != 0) {
+        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $hashref->{_error} = TRUE;
         $e->throw( message => 'Cannot untaint' );
-    }
-    if (not defined $status) {
-        Exception::IO->throw( message => 'Cannot untaint' );
-    }
-
-    $hashref->{untaint} = 1;
-
-    return $self;
-}
-
-
-# Unmark untaint attribute
-sub taint {
-    ### taint: @_
-
-    my $self = shift;
-
-    Exception::Argument->catch(
-        message => 'Usage: $io->taint()'
-    ) if not blessed $self or @_ > 0;
-
-    # handle GLOB reference
-    my $hashref = ${*$self};
-
-    my $status;
-    eval {
-        $status = CORE::fileno $hashref->{fh};
     };
-    if ($@) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot taint' );
-    }
-    if (not defined $status) {
-        Exception::IO->throw( message => 'Cannot taint' );
-    }
+    assert_equals(0, $status) if ASSERT;
 
-    $hashref->{untaint} = 0;
+    $hashref->{tainted} = FALSE;
 
     return $self;
-}
+};
 
 
 # Clean up on destroy
@@ -1347,10 +1383,12 @@ sub DESTROY {
 
     my ($self) = @_;
     untie *$self if reftype $self eq 'GLOB';
-}
+
+    return TRUE;
+};
 
 
-# Tie hook. Others are initialized by INIT block.
+# Tie hook by proxy class
 sub TIEHANDLE {
     ### TIEHANDLE: @_
 
@@ -1360,78 +1398,80 @@ sub TIEHANDLE {
     my $self = \$instance;
 
     # weaken the real object, otherwise it won't be destroyed automatically
-    weaken $instance;
+    weaken $instance if ref $instance;
 
     return bless $self => $class;
-}
+};
 
 
 # Called on untie.
 sub UNTIE {
     ### UNTIE: @_
-}
+};
 
 
 # Add missing methods through Class::MOP
-INIT: {
+#
+
+{
     # Generate accessors for IO modifiers (global and local)
     my %standard_accessors = (
-        input_record_separator  => '/',   # $/
-        output_field_separator  => ',',   # $,
-        output_record_separator => '\\',  # $\
+        format_formfeed              => "\014",  # $^L
+        format_line_break_characters => ':',     # $:
+        input_record_separator       => '/',     # $/
+        output_field_separator       => ',',     # $,
+        output_record_separator      => '\\',    # $\
     );
-    while (my ($func, $var) = each(%standard_accessors)) {
+    while (my ($func, $var) = each %standard_accessors) {
         no strict 'refs';
-        __PACKAGE__->meta->add_method($func => sub {
-            local *__ANON__ = $func;
+        __PACKAGE__->meta->add_method( $func => sub {
             ### $func\: @_
             my $self = shift;
             Exception::Argument->throw(
-                message => "Usage: \$io->$func([EXPR])"
+                message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
             ) if @_ > 1;
             if (ref $self) {
-                my $hashref = ${*$self} if reftype $self eq 'GLOB';
+                my $hashref = ${*$self};
                 my $prev = $hashref->{$func};
                 if (@_ > 0) {
                     $hashref->{$func} = shift;
-                }
+                };
                 return $prev;
             }
             else {
                 my $prev = ${*$var};
                 if (@_ > 0) {
                     ${*$var} = shift;
-                }
+                };
                 return $prev;
-            }
-        });
-    }
+            };
+        } );
+    };
+};
 
+{
     # Generate accessors for IO modifiers (output modifiers which require select)
     my %output_accessors = (
-        format_formfeed              => "\014",  # $^L
-        format_line_break_characters => ':',     # $:
         format_lines_left            => '-',     # $-
         format_lines_per_page        => '=',     # $=
         format_page_number           => '%',     # $%
         input_line_number            => '.',     # $.
         output_autoflush             => '|',     # $|
     );
-    while (my ($func, $var) = each(%output_accessors)) {
+    while (my ($func, $var) = each %output_accessors) {
         no strict 'refs';
-        __PACKAGE__->meta->add_method($func => sub {
-            local *__ANON__ = $func;
+        __PACKAGE__->meta->add_method( $func => sub {
             ### $func\: @_
             my $self = shift;
             Exception::Argument->throw(
-                message => "Usage: \$io->$func([EXPR])"
+                message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
             ) if @_ > 1;
             if (ref $self) {
                 my $oldfh = select *$self;
                 my $prev = ${*$var};
                 if (@_ > 0) {
                     ${*$var} = shift;
-                }
+                };
                 select $oldfh;
                 return $prev;
             }
@@ -1439,25 +1479,26 @@ INIT: {
                 my $prev = ${*$var};
                 if (@_ > 0) {
                     ${*$var} = shift;
-                }
+                };
                 return $prev;
-            }
-        });
-    }
+            };
+        } );
+    };
+};
 
+{
     # Generate accessors for IO modifiers (qualified format name)
     my %format_name_accessors = (
         format_name      => '~',  # $~
         format_top_name  => '^',  # $^
     );
-    while (my ($func, $var) = each(%format_name_accessors)) {
+    while (my ($func, $var) = each %format_name_accessors) {
         no strict 'refs';
-        __PACKAGE__->meta->add_method($func => sub {
-            local *__ANON__ = $func;
+        __PACKAGE__->meta->add_method( $func => sub {
             ### $func\: @_
             my $self = shift;
             Exception::Argument->throw(
-                message => "Usage: \$io->$func([EXPR])"
+                message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
             ) if @_ > 1;
             if (ref $self) {
                 my $oldfh = select *$self;
@@ -1465,7 +1506,7 @@ INIT: {
                 if (@_ > 0) {
                     my $value = shift;
                     ${*$var} = defined $value ? qualify($value, caller) : undef;
-                }
+                };
                 select $oldfh;
                 return $prev;
             }
@@ -1474,62 +1515,137 @@ INIT: {
                 my $value = shift;
                 ${*$var} = defined $value ? qualify($value, caller) : undef;
                 return $prev;
-            }
-        });
-    }
+            };
+        } );
+    };
+};
 
-    # Alias
-    __PACKAGE__->meta->alias_method('autoflush' => \&output_autoflush);
+# Alias
+__PACKAGE__->meta->alias_method('autoflush' => \&output_autoflush);
 
-    # Aliasing tie hooks to real functions
-    foreach my $func (qw< close eof fileno print printf readline getc >) {
-        __PACKAGE__->meta->alias_method(
-            uc($func) => __PACKAGE__->meta->get_method($func)->body
-        );
-    }
-    foreach my $func (qw< read write >) {
-        __PACKAGE__->meta->alias_method(
-            uc($func) => __PACKAGE__->meta->get_method('sys' . $func)->body
-        );
-    }
-
-    # Make immutable finally
-    __PACKAGE__->meta->make_immutable;
-}
+# Aliasing tie hooks to real functions
+foreach my $func (qw< close eof fileno print printf readline getc >) {
+    __PACKAGE__->meta->alias_method(
+        uc($func) => __PACKAGE__->meta->get_method($func)->body
+    );
+};
+foreach my $func (qw< read write >) {
+    __PACKAGE__->meta->alias_method(
+        uc($func) => __PACKAGE__->meta->get_method("sys$func")->body
+    );
+};
 
 
-# Following workaround is moved to separate package because syscall.ph
-# pollutes namespace and we need keep IO::Moose::Handle clean because of
-# Pod::Coverage.
+# Make immutable finally
+__PACKAGE__->meta->make_immutable;
 
-package IO::Moose::Handle::Syscall;
-
-
-# Use SYS_fsync for sync method
-eval { require 'syscall.ph' };
-# Workaround for bug on Ubuntu gutsy i386
-if (defined &__NR_fsync and defined &__i386 and defined &_ASM_X86_64_UNISTD_H_) {
-    # Store and restore other typeglobs than CODE
-    my %glob;
-    foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-        $glob{$type} = *{__NR_fsync}{$type}
-            if defined *{__NR_fsync}{$type};
-    }
-    undef *{__NR_fsync};
-    foreach my $type (qw< SCALAR ARRAY HASH IO FORMAT >) {
-        *{__NR_fsync} = $glob{$type}
-            if defined $glob{$type};
-    }
-    eval { require 'asm-i386/unistd.ph' };
-}
-
-
-package IO::Moose::Handle;
 
 1;
 
 
 __END__
+
+=begin umlwiki
+
+= Class Diagram =
+
+[                                 IO::Moose::Handle
+ --------------------------------------------------------------------------------------
+ +file : Num|FileHandle|OpenHandle {rw, weak}
+ <<obsoleted>> +fd : Num|FileHandle|OpenHandle
+ +mode : CanonOpenModeStr = "<" {rw}
+ +fh : GlobRef {ro}
+ +autochomp : Bool = false {rw}
+ +untaint : Bool = ${^TAINT} {ro}
+ +blocking : Bool = true {ro}
+ +format_formfeed : Str {rw}
+ +format_line_break_characters : Str {rw}
+ +input_record_separator : Str {rw}
+ +output_field_separator : Str {rw}
+ +output_record_separator : Str {rw}
+ #_error : Bool
+ #_ungetc_buffer : Str
+ --------------------------------------------------------------------------------------
+ <<create>> +new( args : Hash ) : Self
+ <<create>> +new_from_fd( fd : Num|FileHandle|OpenHandle, mode : CanonOpenModeStr = ">" ) : Self
+ <<create>> +slurp( file : Num|FileHandle|OpenHandle, args : Hash ) : Str|Array
+ +fdopen( fd : Num|FileHandle|OpenHandle, mode : CanonOpenModeStr = ">" ) : Self
+ +close() : Self
+ +eof() : Bool
+ +opened() : Bool
+ +fileno() : Int
+ +print( args : Array ) : Self
+ +printf( fmt : Str = "", args : Array = () ) : Self
+ +readline() : Str|Array
+ +getline() : Str
+ +getlines() : Array
+ +ungetc( ord : Int ) : Self
+ +sysread( out buf, len : Int, offset : Int = 0 ) : Int
+ +syswrite( buf : Str, len : Int, offset : Int = 0 ) : Int
+ +getc() : Char
+ +read( out buf, len : Int, offset : Int = 0 ) : Int
+ +write( buf : Str, len : Int, offset : Int = 0 ) : Int
+ +format_write( format_name : Str ) : Self
+ +say( args : Array ) : Self
+ +slurp() : Str|Array
+ +truncate( len : Int ) : Self
+ +stat() : File::Stat::Moose
+ +error() : Bool
+ +clearerr() : Bool
+ +sync() : Self
+ +flush() : Self
+ +printflush( args : Array ) : Self
+ +blocking() : Bool
+ +blocking( bool : Bool ) : Bool
+ +untaint() : Self {rw}
+ +clear_input_record_separator()
+ +clear_output_field_separator()
+ +clear_output_record_separator()
+ +clear_format_formfeed()
+ +clear_format_line_break_characters()
+ +format_lines_left() : Str
+ +format_lines_left( value : Str ) : Str
+ +format_lines_per_page() : Str
+ +format_lines_per_page( value : Str ) : Str
+ +format_page_number() : Str
+ +format_page_number( value : Str ) : Str
+ +input_line_number() : Str
+ +input_line_number( value : Str ) : Str
+ +autoflush() : Str
+ +autoflush( value : Str ) : Str
+ +output_autoflush() : Str
+ +output_autoflush( value : Str ) : Str
+ +format_name() : Str
+ +format_name( value : Str ) : Str
+ +format_top_name() : Str
+ +format_top_name( value : Str ) : Str
+ #_open_file() : Bool
+                                                                            ]
+
+[IO::Moose::Handle] ---> <<use>> [File::Stat::Moose]
+
+[IO::Moose::Handle] ---> <<exception>> [Exception::Fatal] [Exception::IO]
+
+=end umlwiki
+
+=head1 IMPORTS
+
+=over
+
+=item use IO::Moose::Handle '$STDIN', '$STDOUT', '$STDERR';
+
+=item use IO::Moose::Handle ':std';
+
+=item use IO::Moose::Handle ':all';
+
+Opens standard handle and imports it into caller's namespace.  The handles
+won't be created until explicit import.
+
+  use IO::Moose::Handle ':std';
+  print $STDOUT->autoflush(1);
+  print $STDIN->slurp;
+
+=back
 
 =head1 BASE CLASSES
 
@@ -1537,22 +1653,11 @@ __END__
 
 =item *
 
+L<IO::Handle>
+
+=item *
+
 L<MooseX::GlobRef::Object>
-
-=back
-
-=head1 CONSTRAINTS
-
-=over
-
-=item ModeStr
-
-Represents mode string. It can be Perl-style canonical mode string (i.e. "+>")
-or C-style mode string (i.e. "w+").
-
-=item CanonModeStr
-
-Represents Perl-style canonical mode string (i.e. "+>").
 
 =back
 
@@ -1560,13 +1665,13 @@ Represents Perl-style canonical mode string (i.e. "+>").
 
 =over
 
+=item Exception::Argument
+
+Thrown whether method is called with wrong argument.
+
 =item Exception::Fatal
 
 Thrown whether fatal error is occurred by core function.
-
-=item Exception::Unimplemented
-
-Thrown whether some method or function is unimplemented.
 
 =back
 
@@ -1574,52 +1679,47 @@ Thrown whether some method or function is unimplemented.
 
 =over
 
-=item fd (rw, new)
+=item file : Num|FileHandle|OpenHandle {rw}
 
-File descriptor (string, file handle or IO object) as a parameter for new
+File (file descriptor number, file handle or IO object) as a parameter for new
 object.
 
-=item mode (rw, new)
+=item mode = CanonOpenModeStr = "<" {rw}
 
-File mode as a parameter for new object. Can be Perl-style (E<lt>, E<gt>,
-E<gt>E<gt>, etc.) or C-style (r, w, a, etc.)
+File mode as a parameter for new object. Can be Perl-style (C<E<lt>>,
+C<E<gt>>, C<E<gt>E<gt>>, etc.) or C-style (C<r>, C<w>, C<a>, etc.)
 
-=item fh (ro)
+=item fh : GlobRef {rw}
 
-File handler used for internal IO operations.
+File handle used for internal IO operations.
 
-=item autochomp (rw)
+=item autochomp : Bool = false {rw}
 
 If is true value the input will be auto chomped.
 
-=item input_record_separator, clear_input_record_separator (rw, $/)
+=item tainted : Bool = ${^TAINT} {rw}
 
-=item output_field_separator, clear_output_field_separator (rw, $,)
+If is false value and tainted mode is enabled the C<untaint> method will be
+called after C<fdopen>.
 
-=item output_record_separator, clear_output_record_separator (rw, $\)
+=item blocking : Bool = true {rw}
 
-=item format_formfeed, clear_format_formfeed (rw, $^L)
+If is false value the non-blocking IO will be turned on.
 
-=item format_line_break_characters, clear_format_line_break_characters (rw, $:)
+=item format_formfeed : Str {rw, var="$^L"}
 
-=item format_lines_left (rw, $-)
+=item format_line_break_characters : Str {rw, var="$:"}
 
-=item format_lines_per_page (rw, $=)
+=item input_record_separator : Str {rw, var="$/"}
 
-=item format_page_number (rw, $%)
+=item output_field_separator : Str {rw, var="$,"}
 
-=item input_line_number (rw, $.)
-
-=item autoflush, output_autoflush (rw, $|)
-
-=item format_name (rw, $~)
-
-=item format_top_name (rw, $^)
+=item output_record_separator : Str {rw, var="$\"}
 
 These are attributes assigned with Perl's built-in variables. See L<perlvar>
-for complete descriptions.  The fields have accessors available as
-per-filehandle basis if called as B<$io-E<gt>accessor> or as global setting if
-called as B<IO::Moose::Handle-E<gt>accessor>.
+for complete descriptions.  The fields have accessors available as per file
+handle basis if called as C<$io-E<gt>accessor> or as global setting if called
+as C<IO::Moose::Handle-E<gt>accessor>.
 
 =back
 
@@ -1627,24 +1727,34 @@ called as B<IO::Moose::Handle-E<gt>accessor>.
 
 =over
 
-=item new
+=item new( I<args> : Hash ) : Self
 
-Creates the B<IO::Moose::Handle> object and calls B<fdopen> method if the
-I<fd> parameter is defined.
+Creates the C<IO::Moose::Handle> object and calls C<fdopen> method if the
+I<file> parameter is defined.
 
-  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
+  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
 
 The object can be created with uninitialized file handle.
 
   $in = IO::Moose::Handle->new;
   $in->fdopen(\*STDIN);
 
-=item new_from_fd(I<fd> [, I<mode>])
+=item new_from_fd( I<fd> : Num|FileHandle|OpenHandle, I<mode> : CanonOpenModeStr = ">" ) : Self
 
-Creates the B<IO::Moose::Handle> object and immediately opens the file handle
+Creates the C<IO::Moose::Handle> object and immediately opens the file handle
 based on arguments.
 
   $out = IO::Moose::Handle->new_from_fd( \*STDOUT, "w" );
+
+=item slurp( I<file> : Num|FileHandle|OpenHandle, I<args> : Hash ) : Str|Array
+
+Creates the C<IO::Moose::Handle> object and returns its content as a scalar in
+scalar context or as an array in array context.
+
+  open $f, "/etc/passwd";
+  $passwd_file = IO::Moose::Handle->slurp($f);
+
+Additional I<args> are passed to C<IO::Moose::Handle> constructor.
 
 =back
 
@@ -1652,10 +1762,10 @@ based on arguments.
 
 =over
 
-=item fdopen(I<fd> [, I<mode>])
+=item fdopen( I<fd> : Num|FileHandle|OpenHandle, I<mode> : CanonOpenModeStr = ">" ) : Self
 
-Opens the file handle based on existing file handle, file handle name, IO
-object or file descriptor number.
+Opens the file handle based on existing file handle, IO object or file
+descriptor number.
 
   $out = IO::Moose::Handle->new;
   $out->fdopen(\*STDOUT, "w");
@@ -1663,178 +1773,205 @@ object or file descriptor number.
   $dup = IO::Moose::Handle->new;
   $dup->fdopen($out, "a");
 
-=item close
+  $stdin = IO::Moose::Handle->new;
+  $stdin->fdopen(0, "r");
 
-=item eof
+=item close(I<>) : Self
 
-=item fileno
+=item eof(I<>) : Bool
 
-=item print([I<args>])
+=item fileno(I<>) : Int
 
-=item printf([I<fmt> [, I<args>]])
+=item print( I<args> : Array ) : Self
 
-=item readline
+=item printf( I<fmt> : Str = "", I<args> : Array = (I<>) ) : Self
 
-=item sysread(I<buf>, I<len> [, I<offset>])
+=item readline(I<>) : Str|Array
 
-=item syswrite(I<buf> [, I<len> [, I<offset>]])
+=item sysread( out I<buf>, I<len> : Int, I<offset> : Int = 0 ) : Int
 
-=item getc
+=item syswrite( I<buf> : Str, I<len> : Int, I<offset> : Int = 0 ) : Int
 
-=item read(I<buf>, I<len> [, I<offset>])
+=item getc(I<>) : Char
 
-=item truncate(I<len>)
+=item read( out I<buf>, I<len> : Int, I<offset> : Int = 0 ) : Int
+
+=item truncate( I<len> : Int ) : Self
 
 These are front ends for corresponding built-in functions.  Most of them
 throws exception on failure which can be caught with try/catch:
 
-  use Exception::Base ':all';
-  try eval {
+  use Exception::Base;
+  eval {
     open $f, "/etc/hostname";
-    $io = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
+    $io = IO::Moose::Handle->new( file => $f, mode => "r" );
     $c = $io->getc;
   };
-  if (catch my $e) {
+  if ($@) {
+    my $e = Exception::Base->catch) {
     warn "problem with /etc/hostname file: $e";
-  }
+  };
 
-The B<fdopen>, B<print>, B<printf> and B<truncate> methods returns this
-object.
+The C<fdopen>, C<close>, C<print>, C<printf> and C<truncate> methods returns
+this object.
 
-=item opened
+=item opened(I<>) : Bool
 
 Returns true value if the object has opened file handle, false otherwise.
 
-=item write(I<buf> [, I<len> [, I<offset>]])
+=item write( I<buf> : Str, I<len> : Int, I<offset> : Int = 0 ) : Int
 
-The opposite of B<read>. The wrapper for the perl B<CORE::write> function is called
-B<format_write>.
+The opposite of B<read>. The wrapper for the perl L<perlfunc/write> function is called
+C<format_write>.
 
-=item format_write([<format_name])
+=item format_write( I<format_name> : Str ) : Self
 
-The wrapper for perl B<CORE::format> function.
+The wrapper for perl L<perlfunc/format> function.
 
-=item getline
+=item getline(I<>) : Str
 
-The B<readline> method which is called always in scalar context.
+The C<readline> method which is called always in scalar context.
 
-  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
+  $io = IO::Moose::Handle->new( file=>\*STDIN, mode=>"r" );
   push @a, $io->getline;  # reads only one line
 
-=item getlines
+=item getlines(I<>) : Array
 
-The B<readline> method which is called always in array context.
+The C<readline> method which is called always in array context.
 
-  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
+  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
   print scalar $io->getlines;  # error: can't call in scalar context.
 
-=item ungetc(I<ord>)
+=item ungetc( I<ord> : Int ) : Self
 
 Pushes a character with the given ordinal value back onto the given handle's
 input stream.  In fact this is emulated in pure-Perl code and can't be mixed
 with non IO::Moose::Handle objects.
 
-  $io = IO::Moose::Handle->new( fd=>\*STDIN, mode=>"r" );
+  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
   $io->ungetc(ord('A'));
   print $io->getc;  # prints A
 
-=item say([I<args>])
+=item say( I<args> : Array ) : Self
 
-The B<print> method with EOL character at the end.
+The C<print> method with EOL character at the end.
 
-  $io = IO::Moose::Handle->new( fd=>\*STDOUT, mode=>"w" );
+  $io = IO::Moose::Handle->new( file => \*STDOUT, mode => "w" );
   $io->say("Hello!");
 
-=item slurp
+=item slurp(I<>) : Str|Array
 
 Reads whole file and returns its content as a scalar in scalar context or as
-an array in array context (like B<getlines> method).
+an array in array context (like C<getlines> method).
 
   open $f, "/etc/passwd";
 
-  $io1 = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
+  $io1 = IO::Moose::Handle->new( file => $f, mode => "r" );
   $passwd_file = $io1->slurp;
 
-  $io2 = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
+  $io2 = IO::Moose::Handle->new( file => $f, mode => "r" );
   $io2->autochomp(1);
   @passwd_lines = $io2->slurp;
 
-=item IO::Moose::Handle->slurp(I<fd>)
+=item stat(I<>) : File::Stat::Moose
 
-Creates the B<IO::Moose::Handle> object and returns its content as a scalar in
-scalar context or as an array in array context.
-
-  open $f, "/etc/passwd";
-  $passwd_file = IO::Moose::Handle->slurp($f);
-
-=item stat
-
-Returns B<File::Stat::Moose> object which represents status of file pointed by
+Returns C<File::Stat::Moose> object which represents status of file pointed by
 current file handle.
 
   open $f, "/etc/passwd";
-  $io = IO::Moose::Handle->new( fd=>$f, mode=>"r" );
+  $io = IO::Moose::Handle->new( file => $f, mode => "r" );
   $st = $io->stat;
   print $st->size;  # size of /etc/passwd file
 
-=item error
+=item error(I<>) : Bool
 
-Returns true value if the given handle has experienced any errors since it was
-opened or since the last call to B<clearerr>, or if the handle is invalid.
+Returns true value if the file handle has experienced any errors since it was
+opened or since the last call to C<clearerr>, or if the handle is invalid.
 
 It is recommended to use exceptions mechanism to handle errors.
 
-=item clearerr
+=item clearerr(I<>) : Bool
 
-Clear the given handle's error indicator. Returns -1 if the handle is invalid,
-0 otherwise.
+Clear the given handle's error indicator.  Returns true value if the file
+handle is valid or false value otherwise.
 
-=item sync
+=item sync(I<>) : Self
 
 Synchronizes a file's in-memory state with that on the physical medium.  It
 operates on file descriptor and it is low-level operation.  Returns this
 object on success or throws an exception.
 
-=item flush
+=item flush(I<>) : Self
 
-Flushes any buffered data at the perlio api level.  Returns self object on
+Flushes any buffered data at the perlio API level.  Returns self object on
 success or throws an exception.
 
-=item printflush(I<args>)
+=item printflush( I<args> : Array ) : Self
 
 Turns on autoflush, print I<args> and then restores the autoflush status.
 Returns self object on success or throws an exception.
 
-=item blocking([I<bool>])
+=item blocking(I<>) : Bool
+
+=item blocking( I<bool> : Bool ) : Bool
 
 If called with an argument blocking will turn on non-blocking IO if I<bool> is
-false, and turn it off if I<bool> is true.  B<blocking> will return the value
+false, and turn it off if I<bool> is true.  C<blocking> will return the value
 of the previous setting, or the current setting if I<bool> is not given.
 
-=item untaint
+=item untaint(I<>) : Self {rw}
 
 Marks the object as taint-clean, and as such data read from it will also be
-considered taint-clean.  Returns self object on success or throws an exception
-on failure.  It has meaning only if Perl is running in tainted mode (-T).
+considered taint-clean.  It has meaning only if Perl is running in tainted
+mode (C<-T>).
 
-=item taint
+=item format_lines_left(I<>) : Str {var="$-"}
 
-Unmarks the object as taint-clean.  Returns self object on success or throws
-an exception on failure.  It has meaning only if Perl is running in tainted
-mode (-T).
+=item format_lines_left( I<value> : Str ) : Str {var="$-"}
+
+=item format_lines_per_page(I<>) : Str {var="$="}
+
+=item format_lines_per_page( I<value> : Str ) : Str {var="$="}
+
+=item format_page_number(I<>) : Str {var="$%"}
+
+=item format_page_number( I<value> : Str ) : Str {var="$%"}
+
+=item input_line_number(I<>) : Str {var="$."}
+
+=item input_line_number( I<value> : Str ) : Str {var="$."}
+
+=item output_autoflush(I<>) : Str {var="$|"}
+
+=item output_autoflush( I<value> : Str ) : Str {var="$|"}
+
+=item autoflush(I<>) : Str {var="$|"}
+
+=item autoflush( I<value> : Str ) : Str {var="$|"}
+
+=item format_name(I<>) : Str {var="$~"}
+
+=item format_name( I<value> : Str ) : Str {var="$~"}
+
+=item format_top_name(I<>) : Str {var="$^"}
+
+=item format_top_name( I<value> : Str ) : Str {var="$^"}
+
+These are accessors assigned with Perl's built-in variables. See L<perlvar>
+for complete descriptions.
 
 =back
 
 =head1 INTERNALS
 
 This module uses L<MooseX::GlobRef::Object> and stores the object's attributes
-in glob reference.  They can be accessed with B<${*$self}-E<gt>{key}>
+in glob reference.  They can be accessed with C<${*$self}-E<gt>{key}>
 expression.
 
-There are two handlers used for IO operations: the original handler used for
-real IO operations and tied handler which hooks IO functions interface.
+There are two handles used for IO operations: the original handle used for
+real IO operations and tied handle which hooks IO functions interface.
 
-The OO-style uses orignal handler stored in I<fh> field.
+The OO-style uses original handle stored in I<fh> field.
 
   # Usage:
   $io->print("OO style");
@@ -1842,13 +1979,13 @@ The OO-style uses orignal handler stored in I<fh> field.
   # Implementation:
   package IO::Moose::Handle;
   sub print {
-      $self=shift;
-      $hashref=${*$self};
+      $self = shift;
+      $hashref = ${*$self};
       CORE::print { $hashref->{fh} } @_
   }
 
-The IO functions-style uses object reference which is derefered as a handler
-tied to proxy object which operates on original handler.
+The IO functions-style uses object reference which is dereferenced as a
+handle tied to proxy object which operates on original handle.
 
   # Usage:
   print $io "IO functions style";
@@ -1857,9 +1994,9 @@ tied to proxy object which operates on original handler.
   package IO::Moose::Handle;
   \*PRINT = &IO::Moose::Handle::print;
   sub print {
-      $self=shift;
-      $self=$$self if blessed $self and reftype $self eq 'REF';
-      $hashref=${*$self};
+      $self = shift;
+      $self = $$self if blessed $self and reftype $self eq 'REF';
+      $hashref = ${*$self};
       CORE::print { $hashref->{fh} } @_
   }
 
@@ -1871,15 +2008,13 @@ L<IO::Handle>, L<MooseX::GlobRef::Object>, L<Moose>.
 
 The API is not stable yet and can be changed in future.
 
-=for readme continue
-
 =head1 AUTHOR
 
 Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
 
 =head1 LICENSE
 
-Copyright 2007, 2008 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright 2007, 2008, 2009 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
