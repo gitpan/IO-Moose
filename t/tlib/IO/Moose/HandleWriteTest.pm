@@ -721,17 +721,11 @@ sub test_sync {
             $obj->sync;
         };
         if ($@) {
-            my $e = Exception::Base->catch;
-            if ($e->isa('Exception::Unimplemented')) {
-                # skip: unimplemented
-            }
-            elsif ($e) {
-                $e->throw;
-            }
-        }
-        else {
-            assert_true($c, '$c');
+            my $e = Exception::Died->catch;
+            # Unimplemented on MSWin32
+            return if $e->eval_error =~ /not implemented/;
         };
+        assert_true($c, '$c');
     };
 
     $obj->close;

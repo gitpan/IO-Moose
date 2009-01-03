@@ -27,7 +27,7 @@ This module provides Moose type which represents PerlIO layer string.
 use strict;
 use warnings;
 
-our $VERSION = 0.06;
+our $VERSION = 0.06_01;
 
 use Moose::Util::TypeConstraints;
 

@@ -1,4 +1,11 @@
 ------------------------------------------------------------------------
+0.0601 | Piotr Roszatycki <dexter@debian.org> | 2009-01-03
+
+Fixes:
+
+* Build for MSWin32.
+
+------------------------------------------------------------------------
 0.06 | Piotr Roszatycki <dexter@debian.org> | 2009-01-01
 
 Incompatibilities:

@@ -532,7 +532,14 @@ sub test_stat_error_args {
 
 sub test_blocking {
     {
-        my $c = $obj->blocking(0);
+        my $c = eval {
+            $obj->blocking(0);
+        };
+        if ($@) {
+            my $e = Exception::Base->catch;
+            # Unimplemented on MSWin32
+            return if $e->isa('Exception::IO');
+        };
         assert_equals(1, $c);
     };
 
