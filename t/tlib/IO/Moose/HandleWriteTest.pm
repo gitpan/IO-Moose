@@ -14,7 +14,7 @@ use IO::Moose::Handle;
 my ($filename_out, $fh_out, $obj, @vars);
 
 sub set_up {
-    (undef, $filename_out) = File::Temp::tempfile;
+    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', TMPDIR =>1 );
 
     open $fh_out, '>', $filename_out or Exception::IO->throw;
 

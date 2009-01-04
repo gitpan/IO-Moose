@@ -400,10 +400,10 @@ sub test_getpos_fail {
     $obj->fdopen($fh_out, 'r');
     assert_not_null($obj->fileno);
 
-    my $p = $obj->getpos;
-    assert_equals(0, $p);
-
     assert_raises( ['Exception::IO'], sub {
+        my $p = $obj->getpos;
+        assert_equals(0, $p);
+
         $obj->setpos($p);
     } );
 };

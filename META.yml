@@ -1,6 +1,6 @@
 ---
 name: IO-Moose
-version: 0.0601
+version: 0.0602
 author:
   - 'Piotr Roszatycki <dexter@debian.org>'
 abstract: Reimplementation of IO::* with improvements
@@ -27,28 +27,28 @@ build_requires:
 provides:
   IO::Moose:
     file: lib/IO/Moose.pm
-    version: 0.0601
+    version: 0.0602
   IO::Moose::File:
     file: lib/IO/Moose/File.pm
-    version: 0.0601
+    version: 0.0602
   IO::Moose::Handle:
     file: lib/IO/Moose/Handle.pm
-    version: 0.0601
+    version: 0.0602
   IO::Moose::Seekable:
     file: lib/IO/Moose/Seekable.pm
-    version: 0.0601
+    version: 0.0602
   MooseX::Types::CanonOpenModeStr:
     file: lib/MooseX/Types/CanonOpenModeStr.pm
-    version: 0.0601
+    version: 0.0602
   MooseX::Types::OpenModeStr:
     file: lib/MooseX/Types/OpenModeStr.pm
-    version: 0.0601
+    version: 0.0602
   MooseX::Types::OpenModeWithLayerStr:
     file: lib/MooseX/Types/OpenModeWithLayerStr.pm
-    version: 0.0601
+    version: 0.0602
   MooseX::Types::PerlIOLayerStr:
     file: lib/MooseX/Types/PerlIOLayerStr.pm
-    version: 0.0601
+    version: 0.0602
 generated_by: Module::Build version 0.280801
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

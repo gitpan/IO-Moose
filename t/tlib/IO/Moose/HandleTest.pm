@@ -102,11 +102,6 @@ sub test_new_error_args {
     } );
 };
 
-sub test_fdopen_io_handle_moose {
-    $obj->fdopen($obj);
-    assert_not_null($obj->fileno);
-};
-
 sub test_fdopen_globref_obj {
     my $io = IO::Moose::HandleTest::Test1->new('<', $fh_in);
     assert_isa('IO::Moose::HandleTest::Test1', $io);

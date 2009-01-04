@@ -35,6 +35,13 @@ sub tear_down {
     close $fh_in;
 };
 
+sub test_fdopen_io_handle_moose {
+    my $io = IO::Moose::Handle->new;
+    assert_isa('IO::Moose::Handle', $io);
+    $io->fdopen($obj);
+    assert_not_null($io->fileno);
+};
+
 sub test_close {
     $obj->close;
 

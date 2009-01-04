@@ -16,7 +16,7 @@ my ($filename_in, $filename_out);
 
 sub set_up {
     $filename_in = __FILE__;
-    (undef, $filename_out) = File::Temp::tempfile;
+    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', TMPDIR =>1 );
 };
 
 sub tear_down {
