@@ -1,0 +1,75 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.55.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 3409f432ba569b75f1dc6522330cb9986965d5b8 Build.PL
+SHA1 b31f1f97bcadce4485bc9eeace6d4f9d4784d2f2 Changes
+SHA1 00daeb61c2ca839825c8017ca0fd659b2ccf1c03 Incompatibilities
+SHA1 e71614419cb599d04093d634355b43793fc67729 LICENSE
+SHA1 80eb7919be631c47cd295ce8e0430feb9be38bb6 MANIFEST
+SHA1 7d9037725a8f8c9c65eff1e091819c215f55c650 MANIFEST.SKIP
+SHA1 80c6bf047245755b39c00ed481d8c68d1103ae28 META.yml
+SHA1 00dd3470dfde93af7344c39f1eb9e7c24448e78e Makefile.PL
+SHA1 744aa3bba7b2053624a9cefc1504bd6593616a12 README
+SHA1 2cfadd410fbde83a8a0ce55a17f925198603af1f eg/file_size_func.pl
+SHA1 ecdc9acaca1a61051ed65e36cda2cb843fabbbd3 eg/file_size_oo.pl
+SHA1 f6e56a68044d9ae60a3dc9e75023338adfab6333 eg/slurp.pl
+SHA1 2f3d40e238ff9e46f25ff826de4342eacfd7f551 eg/uniq_func.pl
+SHA1 c4c6d5475faaab707f758bf33e15bdbbfabb94b5 eg/uniq_oo.pl
+SHA1 a437c2bb7eabbaf66bbf7fa50bdba613ac5aa1fc eg/uniq_std.pl
+SHA1 202a0f8aeddd92a46718e25b53fcc7269ff72611 lib/IO/Moose.pm
+SHA1 e32f2c8a7df7745b40d4d13ee3f17738d0855d0f lib/IO/Moose/File.pm
+SHA1 f7947851b00be762968b890ec82fc72ff9a45407 lib/IO/Moose/Handle.pm
+SHA1 4350cff67c4a73ba745357a263009c3da07c3346 lib/IO/Moose/Seekable.pm
+SHA1 693c4acfa36c8ebea1af9441163875e4d5e386b4 lib/MooseX/Types/CanonOpenModeStr.pm
+SHA1 b65a20f5a3134ff301b5ac7107cdbd0b480dd80d lib/MooseX/Types/OpenModeStr.pm
+SHA1 74251b29d5b0c7ccd008d9b0d13377d03860614d lib/MooseX/Types/OpenModeWithLayerStr.pm
+SHA1 30479878278f747992eeae3ef1909764ee93897f lib/MooseX/Types/PerlIOLayerStr.pm
+SHA1 26ba3871f2495155b587f8464d60f25e1e285551 t/all_tests.t
+SHA1 9800b2035edd0ac8481cc43473af4e3c48011209 t/all_tests_tainted.t
+SHA1 b2caa2be8129d957ddf5c7f3dcbe4b8eb66df2ec t/test.pl
+SHA1 adfac48e8b3f66945287964dd5397f24d2dffc24 t/test_tainted.pl
+SHA1 5b04df3e82e9cfc189c243166077698561ced542 t/tlib/IO/Moose/FileOpenTest.pm
+SHA1 d5926b8f5a689b736349f8697cc5dac723d05fc0 t/tlib/IO/Moose/FileTest.pm
+SHA1 119f77b282091483ffe137898cb906724dd20571 t/tlib/IO/Moose/HandleImportTest.pm
+SHA1 31d5bb053f63f7e6bb0e5443a8e9a4253afd6342 t/tlib/IO/Moose/HandleReadTest.pm
+SHA1 4be4b5ad5ed7c58335e80416d49cda30820f4f44 t/tlib/IO/Moose/HandleTest.pm
+SHA1 60a820e9fb7149c084f08d1743ac5bffbe664a15 t/tlib/IO/Moose/HandleWriteTest.pm
+SHA1 9711e518269750c417c34ac274b01cadf5055f35 t/tlib/IO/Moose/IO_MooseTest_Bad.pm
+SHA1 0edb2ebf7f3e734e999cfddf2ba8724c13d23fae t/tlib/IO/Moose/IO_MooseTest_Good.pm
+SHA1 8319d3623cb14dee64bf7c60997acbc58c6ebf4b t/tlib/IO/Moose/SeekableTest.pm
+SHA1 d9137d6e795c369dc46b75f26d39298f10c2a715 t/tlib/IO/MooseTest.pm
+SHA1 d1a6611287ea5f6bee276f1b3d6486607e3993ac xt/benchmark.pl
+SHA1 b56b358ce5eb4fd22d3e66f1cb1c5231bf0c457f xt/consistent_version_numbers.t
+SHA1 cd748ade99c6f4613a6a8b2579df4f55af6b9db8 xt/copyright.t
+SHA1 650dccfa9b6f5a98cf731c89041bea8935dbc623 xt/cover.pl
+SHA1 0cc035a7059d85dbe3345dd77ab3bfcb26747eea xt/distribution.t
+SHA1 ce95b12540d6fa64569e97e3bc58142d567a9109 xt/kwalitee.t
+SHA1 6e7f9dde7560793bcb40acc41561e07d163ad6d1 xt/minimumversion.t
+SHA1 8625d867e8834f8d88abc5b1d81ce455d8001b04 xt/perlcritic.t
+SHA1 ede4ee29792dc8ca86d33e6c220ff493d8fdbe56 xt/perlcriticrc
+SHA1 775b3ac02805b6d703614f42608732fb43af2a41 xt/pod_coverage.t
+SHA1 e12a701e6b800d6ce464f3d95082de372203c690 xt/pod_spell.xt
+SHA1 2c579b58def8daec94f41b628ac81c256faaa2b1 xt/pod_syntax.t
+SHA1 d25d7ae3c9aef00f20f6febe09e9925a9f3ce020 xt/profile.pl
+SHA1 4c4eea76df7712dc30bfd7327498817a36fd3341 xt/profile_tmpfile.pl
+SHA1 ffbfb92133e04509ba4997894d1f0417048d4cb5 xt/trace.pl
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkmC/0EACgkQhMHHe8CxClvmCgCeM4vqJ0yhb6iGQlSb89vi3IGP
+AzQAn0/KoBZMxtLZSFFs097c+ALceMjT
+=xLmE
+-----END PGP SIGNATURE-----

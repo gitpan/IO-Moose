@@ -1,8 +1,10 @@
-#!/usr/bin/perl -T
+#!/usr/bin/perl
 
 use 5.008;
 use strict;
 use warnings;
+
+use Taint::Runtime 'enable';
 
 use File::Basename;
 use File::Spec;

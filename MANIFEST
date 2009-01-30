@@ -37,7 +37,7 @@ t/tlib/IO/MooseTest.pm
 xt/benchmark.pl
 xt/consistent_version_numbers.t
 xt/copyright.t
-xt/cover.sh
+xt/cover.pl
 xt/distribution.t
 xt/kwalitee.t
 xt/minimumversion.t
@@ -49,3 +49,6 @@ xt/pod_syntax.t
 xt/profile.pl
 xt/profile_tmpfile.pl
 xt/trace.pl
+LICENSE
+SIGNATURE    Added here by Module::Build
+SIGNATURE    Added here by Module::Build

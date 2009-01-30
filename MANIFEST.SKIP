@@ -4,6 +4,8 @@
 ,v$
 \B\.svn\b
 \B\.cvsignore$
+\B\.git\b
+\B\.gitignore$
 
 # Avoid Makemaker generated and utility files.
 \bMakefile$
@@ -36,11 +38,18 @@
 \B\.DS_Store
 #   Mac OSX SMB mount metadata files
 \B\._
+
 # Avoid archives of this distribution
 \.gz$
 \.ppd$
+\.ppmx$
 \.tgz$
 \.deb$
 \bDebian_CPANTS.txt$
 
-\bIO-Moose-
+# Avoid Eclipse files
+.includepath
+.project
+
+# Avoid distdir
+\d+\.\d+\b

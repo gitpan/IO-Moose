@@ -1,4 +1,36 @@
 ------------------------------------------------------------------------
+0.07 | Piotr Roszatycki <dexter@debian.org> | 2009-01-29
+
+Changes:
+
+* Build requires Taint::Runtime.
+* Accessors are used rather than direct access to hashref if attribute
+  "strict_accessors" is true value.
+* Refactored "BUILD" methods.
+
+* IO::Moose::Handle:
+  * Attributes "file" and "mode" are read-only.
+  * Attribute "file" is not weak_ref anymore.
+  * Attribute "mode" is lazy.
+  * New attribute "copyfh" which copies "file" handle rather than creating the
+    new one.
+  * Method "close" clears attributes "file" and "mode".
+  * The ":std" handles are created with "copyfh => 1" argument.
+
+* IO::Moose::Seekable:
+  * Extends IO::Moose::Handle and IO::Seekable.
+
+* IO::Moose::File:
+  * Extends IO::Moose::Seekable and IO::File.
+  * Attribute "mode" is not a Num anymore.
+  * New attribute "sysmode" is a Num and handles method "sysopen".
+  * New method "sysopen" calls CORE::sysopen.
+  * Attribute "perms" is lazy.
+  * If attribute "file" is a file handle, method "fdopen" is called rather
+    than method "open".
+  * IO::Moose::File object returns attribute "file" for string context.
+
+------------------------------------------------------------------------
 0.0602 | Piotr Roszatycki <dexter@debian.org> | 2009-01-05
 
 Fixes:

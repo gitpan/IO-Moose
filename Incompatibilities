@@ -1,4 +1,23 @@
 ------------------------------------------------------------------------
+0.06 -> 0.07
+
+* Attributes "file" and "mode" are read-only.
+
+  Was:
+  
+  $io = IO::Moose::Handle->new;
+  $io->file( \*STDIN );
+  
+  Should be:
+  
+  $io = IO::Moose::Handle->new( file => \*STDIN );
+  
+  or:
+  
+  $io = IO::Moose::Handle->new;
+  $io->fdopen( \*STDIN );
+ 
+------------------------------------------------------------------------
 0.05 -> 0.06
 
 * Attribute "file" replaced attribute "fd" and "filename".  Attribute "fd"

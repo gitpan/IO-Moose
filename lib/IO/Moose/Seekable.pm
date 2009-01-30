@@ -31,10 +31,6 @@ It is based on L<Moose> object framework.
 
 =item *
 
-It provides the Moose Role.
-
-=item *
-
 It uses L<Exception::Base> for signaling errors. Most of methods are throwing
 exception on failure.
 
@@ -51,9 +47,11 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = 0.06_02;
+our $VERSION = '0.07';
 
-use Moose::Role;
+use Moose;
+
+extends 'IO::Moose::Handle', 'IO::Seekable';
 
 
 use Exception::Base (
@@ -62,6 +60,9 @@ use Exception::Base (
 use Exception::Argument;
 use Exception::Fatal;
 
+
+use constant::boolean;
+use English '-no_match_vars';
 
 use Scalar::Util 'blessed', 'looks_like_number', 'reftype';
 
@@ -83,7 +84,7 @@ use if $ENV{PERL_DEBUG_IO_MOOSE_SEEKABLE}, 'Smart::Comments';
 
 # Wrapper for CORE::seek
 sub seek {
-    ### seek: @_
+    ### IO::Moose::Seekabe::seek: @_
 
     my $self = shift;
 
@@ -94,17 +95,13 @@ sub seek {
           message => 'Usage: $io->seek(POS, WHENCE)',
     ) if not blessed $self or @_ != 2 or not looks_like_number $_[0] or not looks_like_number $_[1];
 
-    # handle GLOB reference
-    assert_equals('GLOB', reftype $self) if ASSERT;
-    my $hashref = ${*$self};
-
     my $status;
     eval {
-        $status = CORE::seek $hashref->{fh}, $_[0], $_[1];
+        $status = CORE::seek $self->fh, $_[0], $_[1];
     };
     if (not $status) {
-        $hashref->{_error} = 1;
-        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $self->_set_error(FALSE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot seek' );
     };
     assert_true($status) if ASSERT;
@@ -115,7 +112,7 @@ sub seek {
 
 # Wrapper for CORE::sysseek
 sub sysseek {
-    ### sysseek: @_
+    ### IO::Moose::Seekabe::sysseek: @_
 
     my $self = shift;
 
@@ -123,17 +120,13 @@ sub sysseek {
           message => 'Usage: $io->sysseek(POS, WHENCE)'
     ) if not blessed $self or @_ != 2 or not looks_like_number $_[0] or not looks_like_number $_[1];
 
-    # handle GLOB reference
-    assert_equals('GLOB', reftype $self) if ASSERT;
-    my $hashref = ${*$self};
-
     my $position;
     eval {
-        $position = CORE::sysseek $hashref->{fh}, $_[0], $_[1];
+        $position = CORE::sysseek $self->fh, $_[0], $_[1];
     };
     if (not $position) {
-        $hashref->{_error} = 1;
-        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot sysseek' );
     };
     assert_true($position) if ASSERT;
@@ -144,7 +137,7 @@ sub sysseek {
 
 # Wrapper for CORE::tell
 sub tell {
-    ### tell: @_
+    ### IO::Moose::Seekabe::tell: @_
 
     my $self = shift;
 
@@ -155,16 +148,13 @@ sub tell {
           message => 'Usage: $io->tell()'
     ) if not blessed $self or @_ > 0;
 
-    # handle GLOB reference
-    my $hashref = ${*$self};
-
     my $position;
     eval {
-        $position = CORE::tell $hashref->{fh};
+        $position = CORE::tell $self->fh;
     };
-    if ($@ or $position < 0) {
-        $hashref->{_error} = 1;
-        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+    if ($EVAL_ERROR or $position < 0) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot tell' );
     };
     assert_not_null($position) if ASSERT;
@@ -175,7 +165,7 @@ sub tell {
 
 # Pure Perl implementation
 sub getpos {
-    ### getpos: @_
+    ### IO::Moose::Seekabe::getpos: @_
 
     my $self = shift;
 
@@ -183,16 +173,13 @@ sub getpos {
           message => 'Usage: $io->getpos()'
     ) if not blessed $self or @_ > 0;
 
-    # handle GLOB reference
-    my $hashref = ${*$self};
-
     my $position;
     eval {
         $position = $self->tell;
     };
-    if ($@ or $position < 0) {
-        $hashref->{_error} = 1;
-        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+    if ($EVAL_ERROR or $position < 0) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot tell' );
     };
     assert_not_null($position) if ASSERT;
@@ -203,7 +190,7 @@ sub getpos {
 
 # Pure Perl implementation
 sub setpos {
-    # setpos: @_
+    # IO::Moose::Seekabe::setpos: @_
 
     my $self = shift;
 
@@ -213,16 +200,13 @@ sub setpos {
 
     my ($pos) = @_;
 
-    # handle GLOB reference
-    my $hashref = ${*$self};
-
     my $status;
     eval {
         $status = $self->seek( $pos, Fcntl::SEEK_SET );
     };
     if (not $status) {
-        $hashref->{_error} = 1;
-        my $e = $@ ? Exception::Fatal->catch : Exception::IO->new;
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot setpos' );
     };
     assert_true($status) if ASSERT;
@@ -250,28 +234,53 @@ __END__
 
 = Class Diagram =
 
-[                  <<role>>
-              IO::Moose::Seekable
+[              IO::Moose::Seekable
  -----------------------------------------------
- +seek( I<pos> : Int, I<whence> : Int ) : Self
- +sysseek( I<pos> : Int, I<whence> : Int ) : Int
- +tell(I<>) : Int
- +getpos(I<>) : Int
- +setpos( I<pos> : Int ) : Self
+ +seek( pos : Int, whence : Int ) : Self
+ +sysseek( pos : Int, whence : Int ) : Int
+ +tell() : Int
+ +getpos() : Int
+ +setpos( pos : Int ) : Self
  -----------------------------------------------
                                                 ]
 
-[IO::Moose::Handle] ---> <<exception>> [Exception::Fatal] [Exception::IO]
+[IO::Moose::Seekable] ---|> [IO::Moose::Handle] [IO::Seekable]
+
+[IO::Moose::Seekable] ---> <<exception>> [Exception::Fatal] [Exception::IO]
 
 =end umlwiki
 
-=head1 BASE CLASSES
+=head1 INHERITANCE
 
 =over 2
 
 =item *
 
-L<Moose::Role>
+extends L<IO::Moose::Handle>
+
+=over 2
+
+=item *
+
+extends L<MooseX::GlobRef::Object>
+
+=over 2
+
+=item *
+
+extends L<Moose::Object>
+
+=back
+
+=item *
+
+extends L<IO::Handle>
+
+=back
+
+=item *
+
+extends L<IO::Seekable>
 
 =back
 
@@ -279,11 +288,11 @@ L<Moose::Role>
 
 =over
 
-=item Exception::Argument
+=item L<Exception::Argument>
 
 Thrown whether method is called with wrong argument.
 
-=item Exception::Fatal
+=item L<Exception::Fatal>
 
 Thrown whether fatal error is occurred by core function.
 
@@ -354,7 +363,7 @@ with B<seek> method.
 
 =head1 SEE ALSO
 
-L<IO::Seekable>, L<IO::Moose>, L<Moose::Role>.
+L<IO::Seekable>, L<IO::Moose>, L<IO::Moose::Handle>.
 
 =head1 BUGS
 

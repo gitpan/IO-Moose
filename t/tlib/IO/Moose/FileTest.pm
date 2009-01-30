@@ -3,10 +3,12 @@ package IO::Moose::FileTest;
 use strict;
 use warnings;
 
+use Test::Unit::Lite;
 use parent 'Test::Unit::TestCase';
+
 use Test::Assert ':all';
 
-use IO::Moose::Handle;
+use IO::Moose::File;
 
 use File::Temp;
 
@@ -25,26 +27,36 @@ sub tear_down {
 
 sub test___isa {
     my $obj = IO::Moose::File->new;
+    assert_isa('IO::File', $obj);
+    assert_isa('IO::Handle', $obj);
+    assert_isa('IO::Seekable', $obj);
+    assert_isa('IO::Moose::File', $obj);
     assert_isa('IO::Moose::Handle', $obj);
+    assert_isa('IO::Moose::Seekable', $obj);
+    assert_isa('Moose::Object', $obj);
+    assert_isa('MooseX::GlobRef::Object', $obj);
+    assert_equals('GLOB', reftype $obj);
 };
 
 sub test_new_empty {
     my $obj = IO::Moose::File->new;
-    assert_isa('IO::Moose::Handle', $obj);
+    assert_isa('IO::Moose::File', $obj);
     assert_equals('GLOB', reftype $obj);
     assert_null(openhandle $obj->fh);
+
+    assert_null($obj->file);
 };
 
 sub test_new_open_default {
     my $obj = IO::Moose::File->new( file => $filename_in );
-    assert_isa('IO::Moose::Handle', $obj);
+    assert_isa('IO::Moose::File', $obj);
 
     assert_equals("package IO::Moose::FileTest;\n", $obj->readline);
 };
 
 sub test_new_open_write {
     my $obj = IO::Moose::File->new( file => $filename_out, mode => '+>' );
-    assert_isa('IO::Moose::Handle', $obj);
+    assert_isa('IO::Moose::File', $obj);
 
     assert_equals($filename_out, $obj->file);
     assert_equals("+>", $obj->mode);
@@ -57,7 +69,7 @@ sub test_new_open_write {
 
 sub test_new_open_layer {
     my $obj = IO::Moose::File->new( file => $filename_in, layer => ':crlf' );
-    assert_isa('IO::Moose::Handle', $obj);
+    assert_isa('IO::Moose::File', $obj);
 
     assert_equals($filename_in, $obj->file);
     assert_equals(":crlf", $obj->layer);
@@ -65,14 +77,11 @@ sub test_new_open_layer {
     assert_equals("package IO::Moose::FileTest;\n", $obj->readline);
 };
 
-sub test_new_fd_obsoleted {
-    assert_raises( ['Exception::Warning'], sub {
-        IO::Moose::File->new( filename => $filename_in );
-    } );
-
-    local $SIG{__WARN__} = sub { };
-    my $obj = IO::Moose::File->new( filename => $filename_in );
+sub test_new_sysopen_no_tied {
+    my $obj = IO::Moose::File->new( file => $filename_in, sysmode => 0, tied => 0 );
     assert_isa('IO::Moose::File', $obj);
+
+    assert_equals("package IO::Moose::FileTest;\n", $obj->readline);
 };
 
 sub test_new_error_io {
@@ -99,20 +108,19 @@ sub test_new_tmpfile {
     my $obj = IO::Moose::File->new_tmpfile;
     assert_isa('IO::Moose::File', $obj);
 
-    $obj->print("test_new_open_write\n");
+    $obj->print("test_new_open_write");
 
     assert_not_null($obj->seek(0, 0));
-    assert_equals("test_new_open_write\n", $obj->readline);
+    assert_equals("test_new_open_write", $obj->readline);
 };
 
 sub test_new_tmpfile_args {
-    my $obj = IO::Moose::File->new_tmpfile( SUFFIX => $$ );
+    my $obj = IO::Moose::File->new_tmpfile( SUFFIX => $$, output_record_separator => '.' );
     assert_isa('IO::Moose::File', $obj);
-
-    $obj->print("test_new_open_write\n");
+    $obj->print("test_new_open_write");
 
     assert_not_null($obj->seek(0, 0));
-    assert_equals("test_new_open_write\n", $obj->readline);
+    assert_equals("test_new_open_write.", $obj->readline);
 };
 
 sub test_new_tmpfile_error_io {

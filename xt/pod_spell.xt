@@ -18,6 +18,7 @@ API
 autochomp
 buf
 CanonOpenModeStr
+copyfh
 EOL
 fd
 fh
@@ -37,4 +38,5 @@ ro
 Roszatycki
 rw
 Str
+sysmode
 unmarks

@@ -1,8 +1,10 @@
-#!/usr/bin/perl -T
+#!/usr/bin/perl
 
 use 5.008;
 use strict;
 use warnings;
+
+use Taint::Runtime 'enable';
 
 BEGIN {
     if (eval { Devel::Cover->VERSION }) {

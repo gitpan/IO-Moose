@@ -1,11 +1,11 @@
-#!/usr/bin/perl -al
+#!/usr/bin/perl
 
 use lib 'lib', '../lib';
 
 package My::CoreIO;
 our $n = 0;
 sub test {
-    open my $f, $0;
+    open my($f), $0;
     my @file;
     while (defined (my $line = <$f>)) {
         chomp $line;
@@ -33,7 +33,7 @@ package My::IOMooseFile;
 use IO::Moose::File;
 our $n = 0;
 sub test {
-    my @file = IO::Moose::File->new(filename=>$0, autochomp=>1)->getlines;
+    my @file = IO::Moose::File->new( file => $0, autochomp => 1 )->getlines;
     $n++;
 }
 

@@ -1,4 +1,6 @@
-#!/usr/bin/perl -Ilib -I../lib
+#!/usr/bin/perl
+
+use lib 'lib', '../lib';
 
 # Usage: slurp file
 

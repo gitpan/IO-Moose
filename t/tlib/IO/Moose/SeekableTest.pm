@@ -3,81 +3,16 @@ package IO::Moose::SeekableTest;
 use strict;
 use warnings;
 
+use Test::Unit::Lite;
 use parent 'Test::Unit::TestCase';
+
 use Test::Assert ':all';
 
-use IO::Moose::Handle;
+use IO::Moose::Seekable;
 
 use Scalar::Util 'reftype';
 
 use maybe Fcntl => ':seek';
-
-{
-    package IO::Moose::SeekableTest::Test1;
-
-    use Moose;
-
-    extends 'MooseX::GlobRef::Object';
-
-    with 'IO::Moose::Seekable';
-
-    use Scalar::Util 'weaken';
-
-    sub fdopen {
-        my ($self, $fd, $mode) = @_;
-        my $hashref = ${*$self};
-        $mode = '<' unless $mode;
-        $mode =~ s/^r(\+?)$/$1</;
-        $mode =~ s/^w(\+?)$/$1>/;
-        $mode =~ s/^a(\+?)$/$1>>/;
-        my $fileno = CORE::fileno $fd;
-        CORE::open $hashref->{fh}, "$mode&=$fileno"
-            or Exception::IO->throw;
-        my $newfd = CORE::fileno $hashref->{fh};
-        CORE::open *$self, "$mode&=$newfd"
-            or Exception::IO->throw;
-        tie *$self, blessed $self, $self;
-    };
-
-    sub TIEHANDLE {
-        my ($class, $instance) = @_;
-        my $self = \$instance;
-        weaken $instance;
-        return bless $self => $class;
-    };
-
-    sub close {
-        my ($self) = @_;
-        my $hashref = ${*$self};
-        CORE::close $hashref->{fh};
-    };
-
-    sub fileno {
-        my ($self) = @_;
-        my $hashref = ${*$self};
-        return CORE::fileno $hashref->{fh};
-    };
-
-    sub readline {
-        my ($self) = @_;
-        my $hashref = ${*$self};
-        return CORE::readline $hashref->{fh};
-    };
-
-    sub getc {
-        my ($self) = @_;
-        my $hashref = ${*$self};
-        return CORE::getc $hashref->{fh};
-    };
-
-    sub sysread {
-        my ($self) = @_;
-        my $hashref = ${*$self};
-        return defined $_[3]
-               ? CORE::sysread $hashref->{fh}, $_[1], $_[2], $_[3]
-               : CORE::sysread $hashref->{fh}, $_[1], $_[2];
-    };
-};
 
 my ($filename_in, $fh_in, $obj);
 
@@ -86,8 +21,8 @@ sub set_up {
 
     open $fh_in, '<', $filename_in or Exception::IO->throw;
 
-    $obj = IO::Moose::SeekableTest::Test1->new;
-    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    $obj = IO::Moose::Seekable->new;
+    assert_isa('IO::Moose::Seekable', $obj);
     assert_equals('GLOB', reftype $obj);
 
     $obj->fdopen($fh_in, 'r');
@@ -101,8 +36,13 @@ sub tear_down {
 };
 
 sub test___isa {
+    assert_isa('IO::Handle', $obj);
+    assert_isa('IO::Seekable', $obj);
+    assert_isa('IO::Moose::Handle', $obj);
+    assert_isa('IO::Moose::Seekable', $obj);
     assert_isa('Moose::Object', $obj);
-    assert_true($obj->does("IO::Moose::Seekable"), 'obj->does("IO::Moose::Seekable")');
+    assert_isa('MooseX::GlobRef::Object', $obj);
+    assert_equals('GLOB', reftype $obj);
 };
 
 sub test___Fcntl {
@@ -112,8 +52,8 @@ sub test___Fcntl {
 };
 
 sub test_new_empty {
-    my $obj = IO::Moose::SeekableTest::Test1->new;
-    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    my $obj = IO::Moose::Seekable->new;
+    assert_isa('IO::Moose::Seekable', $obj);
     assert_equals('GLOB', reftype $obj);
 };
 
@@ -182,8 +122,8 @@ sub test_seek_tied {
 sub test_seek_fail {
     open my $fh_out, '<&=1' or return;
 
-    $obj = IO::Moose::SeekableTest::Test1->new;
-    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    $obj = IO::Moose::Seekable->new;
+    assert_isa('IO::Moose::Seekable', $obj);
     assert_equals('GLOB', reftype $obj);
 
     $obj->fdopen($fh_out, 'r');
@@ -393,8 +333,8 @@ sub test_getpos_setpos {
 sub test_getpos_fail {
     open my $fh_out, '<&=1' or return;
 
-    $obj = IO::Moose::SeekableTest::Test1->new;
-    assert_isa('IO::Moose::SeekableTest::Test1', $obj);
+    $obj = IO::Moose::Seekable->new;
+    assert_isa('IO::Moose::Seekable', $obj);
     assert_equals('GLOB', reftype $obj);
 
     $obj->fdopen($fh_out, 'r');

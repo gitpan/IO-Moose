@@ -4,7 +4,7 @@ NAME
 SYNOPSIS
       use IO::Moose 'Handle', 'File';  # loads IO::Moose::* modules
 
-      $passwd = IO::Moose::File->new( filename=>'/etc/passwd' )->slurp;
+      $passwd = IO::Moose::File->new( file => '/etc/passwd' )->slurp;
 
 DESCRIPTION
     `IO::Moose' provides a simple mechanism to load several modules in one

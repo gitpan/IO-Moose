@@ -3,7 +3,9 @@ package IO::Moose::HandleReadTest;
 use strict;
 use warnings;
 
+use Test::Unit::Lite;
 use parent 'Test::Unit::TestCase';
+
 use Test::Assert ':all';
 
 use Scalar::Util 'reftype', 'tainted';

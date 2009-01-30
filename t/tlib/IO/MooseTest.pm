@@ -3,7 +3,9 @@ package IO::MooseTest;
 use strict;
 use warnings;
 
+use Test::Unit::Lite;
 use parent 'Test::Unit::TestCase';
+
 use Test::Assert ':all';
 
 use IO::Moose ();

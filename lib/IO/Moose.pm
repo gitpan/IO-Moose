@@ -10,7 +10,7 @@ IO::Moose - Reimplementation of IO::* with improvements
 
   use IO::Moose 'Handle', 'File';  # loads IO::Moose::* modules
 
-  $passwd = IO::Moose::File->new( filename=>'/etc/passwd' )->slurp;
+  $passwd = IO::Moose::File->new( file => '/etc/passwd' )->slurp;
 
 =head1 DESCRIPTION
 
@@ -49,7 +49,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = 0.06_02;
+our $VERSION = '0.07';
 
 use Class::MOP;
 
