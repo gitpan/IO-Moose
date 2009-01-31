@@ -30,7 +30,7 @@ Perl-style canonical mode string (i.e. "+>") or C-style mode string (i.e.
 use strict;
 use warnings;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use Moose::Util::TypeConstraints;
 
@@ -56,7 +56,7 @@ L<Moose::Util::TypeConstraints>, L<IO::Moose>.
 
 =head1 AUTHOR
 
-Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+Piotr Roszatycki <dexter@debian.org>
 
 =head1 LICENSE
 

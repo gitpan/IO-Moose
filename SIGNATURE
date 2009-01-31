@@ -14,14 +14,14 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 3409f432ba569b75f1dc6522330cb9986965d5b8 Build.PL
-SHA1 b31f1f97bcadce4485bc9eeace6d4f9d4784d2f2 Changes
+SHA1 9d5f52705e6172c2601db98ca6164a0a3e1fb90a Build.PL
+SHA1 7bd04411dbf6d7588ca283848adeac5ea0406ca0 Changes
 SHA1 00daeb61c2ca839825c8017ca0fd659b2ccf1c03 Incompatibilities
-SHA1 e71614419cb599d04093d634355b43793fc67729 LICENSE
+SHA1 752168fd36cc5334ab39b27e478f4997c296ec25 LICENSE
 SHA1 80eb7919be631c47cd295ce8e0430feb9be38bb6 MANIFEST
 SHA1 7d9037725a8f8c9c65eff1e091819c215f55c650 MANIFEST.SKIP
-SHA1 80c6bf047245755b39c00ed481d8c68d1103ae28 META.yml
-SHA1 00dd3470dfde93af7344c39f1eb9e7c24448e78e Makefile.PL
+SHA1 a69a5e53a76022689238cda952924150a85f39e2 META.yml
+SHA1 d7789cf2e92dae8b971afe1ef0a3903c085d9cd2 Makefile.PL
 SHA1 744aa3bba7b2053624a9cefc1504bd6593616a12 README
 SHA1 2cfadd410fbde83a8a0ce55a17f925198603af1f eg/file_size_func.pl
 SHA1 ecdc9acaca1a61051ed65e36cda2cb843fabbbd3 eg/file_size_oo.pl
@@ -29,14 +29,14 @@ SHA1 f6e56a68044d9ae60a3dc9e75023338adfab6333 eg/slurp.pl
 SHA1 2f3d40e238ff9e46f25ff826de4342eacfd7f551 eg/uniq_func.pl
 SHA1 c4c6d5475faaab707f758bf33e15bdbbfabb94b5 eg/uniq_oo.pl
 SHA1 a437c2bb7eabbaf66bbf7fa50bdba613ac5aa1fc eg/uniq_std.pl
-SHA1 202a0f8aeddd92a46718e25b53fcc7269ff72611 lib/IO/Moose.pm
-SHA1 e32f2c8a7df7745b40d4d13ee3f17738d0855d0f lib/IO/Moose/File.pm
-SHA1 f7947851b00be762968b890ec82fc72ff9a45407 lib/IO/Moose/Handle.pm
-SHA1 4350cff67c4a73ba745357a263009c3da07c3346 lib/IO/Moose/Seekable.pm
-SHA1 693c4acfa36c8ebea1af9441163875e4d5e386b4 lib/MooseX/Types/CanonOpenModeStr.pm
-SHA1 b65a20f5a3134ff301b5ac7107cdbd0b480dd80d lib/MooseX/Types/OpenModeStr.pm
-SHA1 74251b29d5b0c7ccd008d9b0d13377d03860614d lib/MooseX/Types/OpenModeWithLayerStr.pm
-SHA1 30479878278f747992eeae3ef1909764ee93897f lib/MooseX/Types/PerlIOLayerStr.pm
+SHA1 46250286fe247d9838f9657b820b18cc6c4e984e lib/IO/Moose.pm
+SHA1 6407c52373590d3df4fc9d4f3adfea23d071121d lib/IO/Moose/File.pm
+SHA1 d6c9db098df1a5c330bb9862e08ae03dc0956c59 lib/IO/Moose/Handle.pm
+SHA1 90e7c55aa8298241af1703563f16a21b7d0a3310 lib/IO/Moose/Seekable.pm
+SHA1 4e4dd47d8d1bdaaba7fe139545a33cd5620a5a41 lib/MooseX/Types/CanonOpenModeStr.pm
+SHA1 b395cc94432757c43c0ca832e568536934089bca lib/MooseX/Types/OpenModeStr.pm
+SHA1 c0e7d63d2b338dce78d2d99b076241885bdcac23 lib/MooseX/Types/OpenModeWithLayerStr.pm
+SHA1 a015e82542af3ac15dbf03c2811eb4360fd7993d lib/MooseX/Types/PerlIOLayerStr.pm
 SHA1 26ba3871f2495155b587f8464d60f25e1e285551 t/all_tests.t
 SHA1 9800b2035edd0ac8481cc43473af4e3c48011209 t/all_tests_tainted.t
 SHA1 b2caa2be8129d957ddf5c7f3dcbe4b8eb66df2ec t/test.pl
@@ -69,7 +69,7 @@ SHA1 ffbfb92133e04509ba4997894d1f0417048d4cb5 xt/trace.pl
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.9 (GNU/Linux)
 
-iEYEARECAAYFAkmC/0EACgkQhMHHe8CxClvmCgCeM4vqJ0yhb6iGQlSb89vi3IGP
-AzQAn0/KoBZMxtLZSFFs097c+ALceMjT
-=xLmE
+iEYEARECAAYFAkmESC4ACgkQhMHHe8CxClu51wCg21/sz/8xDx4mYnzEOLFCmTXY
+DtgAnjRz7ufns/e4g9lQHR7sPgfbsLez
+=trnO
 -----END PGP SIGNATURE-----

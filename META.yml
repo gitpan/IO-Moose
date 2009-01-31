@@ -1,8 +1,8 @@
 ---
 name: IO-Moose
-version: 0.07
+version: 0.08
 author:
-  - 'Piotr Roszatycki E<lt>dexter@debian.orgE<gt>'
+  - 'Piotr Roszatycki <dexter@debian.org>'
 abstract: Reimplementation of IO::* with improvements
 license: perl
 resources:
@@ -16,7 +16,7 @@ requires:
   Exception::Fatal: 0
   Exception::System: 0.11
   File::Stat::Moose: 0.03
-  MooseX::GlobRef::Object: 0.03
+  MooseX::GlobRef::Object: 0.05
   Task::Weaken: 0
   Test::Assert: 0.04
   constant::boolean: 0
@@ -30,29 +30,29 @@ build_requires:
 provides:
   IO::Moose:
     file: lib/IO/Moose.pm
-    version: 0.07
+    version: 0.08
   IO::Moose::File:
     file: lib/IO/Moose/File.pm
-    version: 0.07
+    version: 0.08
   IO::Moose::Handle:
     file: lib/IO/Moose/Handle.pm
-    version: 0.07
+    version: 0.08
   IO::Moose::Seekable:
     file: lib/IO/Moose/Seekable.pm
-    version: 0.07
+    version: 0.08
   MooseX::Types::CanonOpenModeStr:
     file: lib/MooseX/Types/CanonOpenModeStr.pm
-    version: 0.07
+    version: 0.08
   MooseX::Types::OpenModeStr:
     file: lib/MooseX/Types/OpenModeStr.pm
-    version: 0.07
+    version: 0.08
   MooseX::Types::OpenModeWithLayerStr:
     file: lib/MooseX/Types/OpenModeWithLayerStr.pm
-    version: 0.07
+    version: 0.08
   MooseX::Types::PerlIOLayerStr:
     file: lib/MooseX/Types/PerlIOLayerStr.pm
-    version: 0.07
-generated_by: Module::Build version 0.31
+    version: 0.08
+generated_by: Module::Build version 0.31012
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2

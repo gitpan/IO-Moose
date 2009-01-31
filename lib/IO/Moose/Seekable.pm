@@ -47,7 +47,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use Moose;
 
@@ -260,27 +260,31 @@ extends L<IO::Moose::Handle>
 
 =over 2
 
-=item *
+=item   *
 
 extends L<MooseX::GlobRef::Object>
 
 =over 2
 
-=item *
+=item     *
 
 extends L<Moose::Object>
 
 =back
-
-=item *
-
-extends L<IO::Handle>
 
 =back
 
 =item *
 
 extends L<IO::Seekable>
+
+=over 2
+
+=item   *
+
+extends L<IO::Handle>
+
+=back
 
 =back
 
@@ -371,7 +375,7 @@ The API is not stable yet and can be changed in future.
 
 =head1 AUTHOR
 
-Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+Piotr Roszatycki <dexter@debian.org>
 
 =head1 LICENSE
 

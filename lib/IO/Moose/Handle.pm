@@ -57,7 +57,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use Moose;
 
@@ -302,7 +302,8 @@ sub _init_fh {
                 $self->_set_fh( $fd->fh );
             }
             else {
-                ${*$self}->{fh} = $fd->fh;
+                my $hashref = \%{*$self};
+                $hashref->{fh} = $fd->fh;
             };
         }
         elsif ((ref $fd || '') eq 'GLOB' or (reftype $fd || '') eq 'GLOB') {
@@ -310,7 +311,8 @@ sub _init_fh {
                 $self->_set_fh( $fd );
             }
             else {
-                ${*$self}->{fh} = $fd;
+                my $hashref = \%{*$self};
+                $hashref->{fh} = $fd;
             };
         }
         else {
@@ -326,7 +328,8 @@ sub _init_fh {
             $self->_set_fh( $fh );
         }
         else {
-            ${*$self}->{fh} = $fh;
+            my $hashref = \%{*$self};
+            $hashref->{fh} = $fh;
         };
     };
 
@@ -1503,9 +1506,9 @@ sub UNTIE {
                 message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
             ) if @_ > 1;
             if (ref $self) {
-                my $prev = ${*$self}->{$func};
+                my $prev = do { \%{*$self} }->{$func};
                 if (@_ > 0) {
-                    ${*$self}->{$func} = shift;
+                    do { \%{*$self} }->{$func} = shift;
                 };
                 return $prev;
             }
@@ -1731,7 +1734,7 @@ extends L<MooseX::GlobRef::Object>
 
 =over 2
 
-=item *
+=item   *
 
 extends L<Moose::Object>
 
@@ -2077,7 +2080,7 @@ The run-time assertions can be enabled with L<Test::Assert> module.
 =head1 INTERNALS
 
 This module uses L<MooseX::GlobRef::Object> and stores the object's attributes
-in glob reference.  They can be accessed with C<${*$self}-E<gt>{attr}>
+in glob reference.  They can be accessed with C<do { \%{*$self} }-E<gt>{attr}>
 expression or with standard accessors C<$self-E<gt>attr>.
 
 There are two handles used for IO operations: the original handle used for
@@ -2120,7 +2123,7 @@ The API is not stable yet and can be changed in future.
 
 =head1 AUTHOR
 
-Piotr Roszatycki E<lt>dexter@debian.orgE<gt>
+Piotr Roszatycki <dexter@debian.org>
 
 =head1 LICENSE
 
