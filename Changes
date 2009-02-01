@@ -1,4 +1,20 @@
 ------------------------------------------------------------------------
+0.09 | Piotr Roszatycki <dexter@debian.org> | 2009-02-01
+
+Fixes:
+
+* Fixed incompatibility with Perl 5.8.1.
+
+Changes:
+
+* IO::Moose::Seekable:
+  * Removed usage of Fcntl. Method "setpos" uses hardcoded "0" value.
+
+* IO::Moose::File:
+  * Removed overloaded stringification.  It doesn't work before Perl 5.8.9
+    and it was confusing.
+
+------------------------------------------------------------------------
 0.08 | Piotr Roszatycki <dexter@debian.org> | 2009-01-31
 
 Changes:

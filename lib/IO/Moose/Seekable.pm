@@ -47,7 +47,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Moose;
 
@@ -65,10 +65,6 @@ use constant::boolean;
 use English '-no_match_vars';
 
 use Scalar::Util 'blessed', 'looks_like_number', 'reftype';
-
-
-# Use Fcntl for blocking method.
-use Fcntl ();
 
 
 # Assertions
@@ -202,7 +198,8 @@ sub setpos {
 
     my $status;
     eval {
-        $status = $self->seek( $pos, Fcntl::SEEK_SET );
+        # Fcntl::SEEK_SET is 0
+        $status = $self->seek( $pos, 0 );
     };
     if (not $status) {
         $self->_set_error(TRUE);

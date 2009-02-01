@@ -43,7 +43,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Moose;
 
@@ -74,14 +74,6 @@ use Test::Assert ':assert';
 
 # Debugging flag
 use if $ENV{PERL_DEBUG_IO_MOOSE_FILE}, 'Smart::Comments';
-
-
-# Overload the cast operations
-use overload (
-    'bool'   => 'to_bool',
-    '""'     => 'to_string',
-    fallback => 1,
-);
 
 
 # File can be also file name or list of File::Spec->catfile arguments
@@ -335,25 +327,6 @@ sub binmode {
 };
 
 
-# Convert an object to string
-sub to_string {
-    ### IO::Moose::File::to_string: @_
-
-    my ($self) = @_;
-
-    my $file = $self->file;
-    return defined $file ? $file : "";
-};
-
-
-# Convert an object to bool (always true)
-sub to_bool {
-    ### IO::Moose::File::to_bool: @_
-
-    return TRUE;
-};
-
-
 {
     # Aliasing tie hooks to real functions
     foreach my $func (qw< open binmode >) {
@@ -390,8 +363,6 @@ __END__
  +sysopen( file : Str, sysmode : Num, perms : Num = 0600 ) : Self
  +binmode() : Self
  +binmode( layer : PerlIOLayerStr ) : Self
- +to_string() : Str {overload='""'}
- +to_bool() : Bool {overload="bool"}
                                                                   ]
 
 [IO::Moose::File] ---|> [IO::Moose::Seekable] [IO::File]
@@ -500,20 +471,6 @@ PerlIO layer string.
 
 =back
 
-=head1 OVERLOADS
-
-=over
-
-=item Boolean context
-
-True value.  See C<to_bool> method.
-
-=item String context
-
-Content of C<filename> attribute.  See C<to_string> method.
-
-=back
-
 =head1 CONSTRUCTORS
 
 =over
@@ -605,21 +562,6 @@ Returns self object.
 
   $io = IO::Moose::File->new( file => "/var/tmp/fromdos.txt" );
   $io->binmode(":crlf");
-
-=item to_string(I<>)
-
-Returns value of C<file> attribute.
-
-  $io = IO::Moose::File->new( file => "conf/myapp.yml" );
-  print "$io";           # prints "conf/myapp.yml"
-  print $io->to_string;  # too
-  print $io->file;   # too
-
-=item to_bool(I<>)
-
-Returns true value.
-
-  $io = IO::Moose::File->new( file => "conf/myapp.yml" );
 
 =back
 

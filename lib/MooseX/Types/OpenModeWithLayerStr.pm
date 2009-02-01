@@ -28,7 +28,7 @@ mode string (i.e. "+>") with additional PerlIO layer.
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Moose::Util::TypeConstraints;
 

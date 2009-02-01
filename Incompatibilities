@@ -1,3 +1,18 @@
+0.08 -> 0.09
+
+* Removed overloaded stringification.  It doesn't work before Perl 5.8.9
+  and it was confusing.
+
+  Was:
+
+  $io = IO::Moose::File->new( file => '/etc/passwd' );
+  print $io;         "/etc/passwd"
+
+  Should be:
+
+  $io = IO::Moose::File->new( file => '/etc/passwd' );
+  print $io->file;   "/etc/passwd"
+
 ------------------------------------------------------------------------
 0.06 -> 0.07
 

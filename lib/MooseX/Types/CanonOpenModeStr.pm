@@ -31,7 +31,7 @@ mode string (i.e. "+>").
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Moose::Util::TypeConstraints;
 

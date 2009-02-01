@@ -30,7 +30,7 @@ Perl-style canonical mode string (i.e. "+>") or C-style mode string (i.e.
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Moose::Util::TypeConstraints;
 
