@@ -43,333 +43,10 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Moose;
 
-extends 'IO::Moose::Seekable', 'IO::File';
-
-
-use MooseX::Types::OpenModeWithLayerStr;
-use MooseX::Types::PerlIOLayerStr;
-
-
-use Exception::Base (
-    '+ignore_package' => [ __PACKAGE__, 'Carp', 'File::Temp' ],
-);
-
-
-use constant::boolean;
-use English '-no_match_vars';
-
-use Scalar::Util 'looks_like_number', 'reftype';
-
-
-# For new_tmpfile
-use File::Temp;
-
-
-# Assertions
-use Test::Assert ':assert';
-
-# Debugging flag
-use if $ENV{PERL_DEBUG_IO_MOOSE_FILE}, 'Smart::Comments';
-
-
-# File can be also file name or list of File::Spec->catfile arguments
-has '+file' => (
-    isa       => 'Str | FileHandle | OpenHandle',
-);
-
-# File mode can be also a number or contain PerlIO layer string
-has '+mode' => (
-    isa       => 'OpenModeWithLayerStr | CanonOpenModeStr',
-);
-
-# Numeric file mode for sysopen
-has 'sysmode' => (
-    is        => 'ro',
-    isa       => 'Num',
-    writer    => '_set_sysmode',
-    clearer   => '_clear_sysmode',
-    predicate => 'has_sysmode',
-);
-
-# Unix perms number for newly created file
-has 'perms' => (
-    is        => 'ro',
-    isa       => 'Num',
-    default   => oct(666),
-    lazy      => TRUE,
-    reader    => 'perms',
-    writer    => '_set_perms',
-    clearer   => '_clear_perms',
-    predicate => 'has_perms',
-);
-
-# PerlIO layer string
-has 'layer' => (
-    is        => 'ro',
-    isa       => 'PerlIOLayerStr',
-    reader    => 'layer',
-    writer    => '_set_layer',
-    clearer   => '_clear_layer',
-    predicate => 'has_layer',
-);
-
-
-## no critic (ProhibitBuiltinHomonyms)
-## no critic (RequireArgUnpacking)
-## no critic (RequireCheckingReturnValueOfEval)
-
-# Overrided private method called by constructor
-override '_open_file' => sub {
-    ### IO::Moose::File::_open_file: @_
-
-    my ($self) = @_;
-
-    # Open file with our method
-    if ($self->has_file) {
-        # call fdopen if it was handler
-        if ((reftype $self->file || '') eq 'GLOB') {
-            $self->fdopen( $self->file, $self->mode );
-            if ($self->has_layer) {
-                $self->binmode( $self->layer );
-            };
-            return TRUE;
-        }
-        else {
-            # call open otherwise
-            if ($self->has_perms) {
-                $self->open( $self->file, $self->mode, $self->perms );
-            }
-            else {
-                $self->open( $self->file, $self->mode );
-            };
-            if (defined $self->layer) {
-                $self->binmode( $self->layer );
-            };
-            return TRUE;
-        };
-    };
-
-    return FALSE;
-};
-
-
-# Constructor for new tmpfile
-sub new_tmpfile {
-    ### IO::Moose::File::new_tmpfile: @_
-
-    my $class = shift;
-
-    my $io;
-
-    eval {
-        # Pass arguments to File::Temp constructor
-        my $tmp = File::Temp->new( @_ );
-
-        # create new empty object with new default mode
-        $io = $class->new( @_, file => $tmp, mode => '+>', copyfh => TRUE );
-    };
-    if ($EVAL_ERROR) {
-        my $e = Exception::Fatal->catch;
-        $e->throw( message => 'Cannot new_tmpfile' );
-    };
-    assert_not_null($io) if ASSERT;
-
-    return $io;
-};
-
-
-# Wrapper for CORE::open
-sub open {
-    ### IO::Moose::File::open: @_
-    my $self = shift;
-
-    # handle tie hook
-    if (blessed $self and reftype $self eq 'REF') {
-        $self = $$self;
-        return $self->sysopen(@_) if defined $_[1] and looks_like_number $_[1];
-    };
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->open(FILENAME [,MODE]) or $io->open(FILENAME, IOLAYERS)'
-    ) if not blessed $self or @_ < 1 or @_ > 2 or ref $_[0];
-
-    my ($file, $mode) = @_;
-    my $layer = '';
-
-    my $status;
-    eval {
-        # check constraints
-        $file  = $self->_set_file($file);
-        $mode  = defined $mode ? $self->_set_mode($mode) : do { $self->_clear_mode; $self->mode };
-
-        if ($mode =~ s/(:.*)//) {
-            $layer = $self->_set_layer($1);
-            $mode  = $self->_set_mode($mode);
-        };
-
-        ### open: "open(fh, $mode, $file)"
-        $status = CORE::open( $self->fh, $mode, $file );
-    };
-    if (not $status) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot open' );
-    };
-    assert_true($status) if ASSERT;
-
-    $self->_set_error(FALSE);
-
-    $self->_open_tied if $self->tied;
-
-    if (${^TAINT} and not $self->tainted) {
-        $self->untaint;
-    };
-
-    return $self;
-};
-
-
-# Wrapper for CORE::sysopen
-sub sysopen {
-    ### IO::Moose::File::sysopen: @_
-    my $self = shift;
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->sysopen(FILENAME, SYSMODE [,PERMS]])'
-    ) if not blessed $self or @_ < 2 or @_ > 3 or ref $_[0];
-
-    my ($file, $sysmode, $perms) = @_;
-    my $layer = '';
-
-    my $status;
-    eval {
-        # check constraints
-        $file    = $self->_set_file($file);
-        $sysmode = $self->_set_sysmode($sysmode);
-        $perms   = defined $perms ? $self->_set_perms($perms) : do { $self->_clear_perms; $self->perms };
-
-        # normalize mode string for tied handler
-        my $mode = ($sysmode & 2 ? '+' : '') . ($sysmode & 1 ? '>' : '<');
-        $self->_set_mode($mode);
-
-        ### open: "sysopen(fh, $file, $mode, $perms)"
-        $status = CORE::sysopen( $self->fh, $file, $sysmode, $perms );
-    };
-    if (not $status) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot open' );
-    };
-    assert_true($status) if ASSERT;
-
-    $self->_set_error(FALSE);
-
-    $self->_open_tied if $self->tied;
-
-    if (${^TAINT} and not $self->tainted) {
-        $self->untaint;
-    };
-
-    return $self;
-};
-
-
-# Also clear sysmode on close
-after 'close' => sub {
-    ### IO::Moose::File::close: @_
-
-    my ($self) = @_;
-    $self->_clear_sysmode;
-
-    return $self;
-};
-
-
-# Wrapper for CORE::binmode
-sub binmode {
-    ### IO::Moose::File::binmode: @_
-
-    my $self = shift;
-
-    # handle tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->binmode([LAYER])'
-    ) if not blessed $self or @_ > 1;
-
-    my ($layer) = @_;
-
-    $layer = $self->_set_layer($layer) if defined $layer;
-
-    my $status;
-    eval {
-        if (defined $layer) {
-            $status = CORE::binmode( $self->fh, $layer );
-        }
-        else {
-            $status = CORE::binmode( $self->fh );
-        };
-    };
-
-    if (not $status) {
-        $self->_set_error(FALSE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot open' );
-    };
-    assert_true($status) if ASSERT;
-
-    return $self;
-};
-
-
-{
-    # Aliasing tie hooks to real functions
-    foreach my $func (qw< open binmode >) {
-        __PACKAGE__->meta->alias_method(
-            uc($func) => __PACKAGE__->meta->get_method($func)->body
-        );
-    };
-};
-
-# Make immutable finally
-__PACKAGE__->meta->make_immutable;
-
-
-1;
-
-
-__END__
-
-=begin umlwiki
-
-= Class Diagram =
-
-[                     IO::Moose::File
- -----------------------------------------------------------------
- +file : Str|FileHandle|OpenHandle {ro}
- +mode : OpenModeWithLayerStr|CanonOpenModeStr = "<" {ro}
- +sysmode : Num {ro}
- +perms : Num = 0666 {ro}
- +layer : PerlIOLayerStr = "" {ro}
- -----------------------------------------------------------------
- +new( args : Hash ) : Self
- +new_tmpfile( args : Hash ) : Self
- +open( file : Str, mode : OpenModeWithLayerStr|CanonOpenModeStr = "<" ) : Self
- +sysopen( file : Str, sysmode : Num, perms : Num = 0600 ) : Self
- +binmode() : Self
- +binmode( layer : PerlIOLayerStr ) : Self
-                                                                  ]
-
-[IO::Moose::File] ---|> [IO::Moose::Seekable] [IO::File]
-
-[IO::Moose::File] ---> <<exception>> [Exception::Fatal] [Exception::IO]
-
-=end umlwiki
 
 =head1 INHERITANCE
 
@@ -425,6 +102,15 @@ extends L<IO::Handle>
 
 =back
 
+=cut
+
+extends 'IO::Moose::Seekable', 'IO::File';
+
+
+use MooseX::Types::OpenModeWithLayerStr;
+use MooseX::Types::PerlIOLayerStr;
+
+
 =head1 EXCEPTIONS
 
 =over
@@ -439,6 +125,30 @@ Thrown whether fatal error is occurred by core function.
 
 =back
 
+=cut
+
+use Exception::Base (
+    '+ignore_package' => [ __PACKAGE__, 'Carp', 'File::Temp' ],
+);
+
+
+use constant::boolean;
+use English '-no_match_vars';
+
+use Scalar::Util 'looks_like_number', 'reftype';
+
+
+# For new_tmpfile
+use File::Temp;
+
+
+# Assertions
+use Test::Assert ':assert';
+
+# Debugging flag
+use if $ENV{PERL_DEBUG_IO_MOOSE_FILE}, 'Smart::Comments';
+
+
 =head1 ATTRIBUTES
 
 =over
@@ -448,11 +158,23 @@ Thrown whether fatal error is occurred by core function.
 File (file name, file handle or IO object) as a parameter for new object or
 C<open> method.
 
+=cut
+
+has '+file' => (
+    isa       => 'Str | FileHandle | OpenHandle',
+);
+
 =item mode : OpenModeWithLayerStr|CanonOpenModeStr = "<" {ro}
 
 File mode as a parameter for new object or C<open> method.  Can be Perl-style
 string (E<lt>, E<gt>, E<gt>E<gt>, etc.) with optional PerlIO layer after colon
 (i.e. C<E<lt>:encoding(UTF-8)>) or C-style string (C<r>, C<w>, C<a>, etc.)
+
+=cut
+
+has '+mode' => (
+    isa       => 'OpenModeWithLayerStr | CanonOpenModeStr',
+);
 
 =item sysmode : Num {ro}
 
@@ -460,16 +182,60 @@ File mode as a parameter for new object or C<sysopen> method.  Can be decimal
 number (C<O_RDONLY>, C<O_RDWR>, C<O_CREAT>, other constants from standard
 module L<Fcntl>).
 
+=cut
+
+has 'sysmode' => (
+    is        => 'ro',
+    isa       => 'Num',
+    writer    => '_set_sysmode',
+    clearer   => '_clear_sysmode',
+    predicate => 'has_sysmode',
+);
+
 =item perms : Num = 0666 {ro}
 
 Permissions to use in case a new file is created and mode was decimal number.
 The permissions are always modified by umask.
 
+=cut
+
+has 'perms' => (
+    is        => 'ro',
+    isa       => 'Num',
+    default   => oct(666),
+    lazy      => TRUE,
+    reader    => 'perms',
+    writer    => '_set_perms',
+    clearer   => '_clear_perms',
+    predicate => 'has_perms',
+);
+
 =item layer : PerlIOLayerStr = "" {ro}
 
 PerlIO layer string.
 
+=cut
+
+has 'layer' => (
+    is        => 'ro',
+    isa       => 'PerlIOLayerStr',
+    reader    => 'layer',
+    writer    => '_set_layer',
+    clearer   => '_clear_layer',
+    predicate => 'has_layer',
+);
+
 =back
+
+=cut
+
+
+use namespace::clean -except => 'meta';
+
+
+## no critic (ProhibitBuiltinHomonyms)
+## no critic (RequireArgUnpacking)
+## no critic (RequireCheckingReturnValueOfEval)
 
 =head1 CONSTRUCTORS
 
@@ -495,6 +261,41 @@ If I<layer> is defined, the C<binmode> method is called.
 
   $io = IO::Moose::File->new( file => "test.txt", layer => ":utf8" );
 
+=cut
+
+override '_open_file' => sub {
+    ### IO::Moose::File::_open_file: @_
+
+    my ($self) = @_;
+
+    # Open file with our method
+    if ($self->has_file) {
+        # call fdopen if it was handler
+        if ((reftype $self->file || '') eq 'GLOB') {
+            $self->fdopen( $self->file, $self->mode );
+            if ($self->has_layer) {
+                $self->binmode( $self->layer );
+            };
+            return TRUE;
+        }
+        else {
+            # call open otherwise
+            if ($self->has_perms) {
+                $self->open( $self->file, $self->mode, $self->perms );
+            }
+            else {
+                $self->open( $self->file, $self->mode );
+            };
+            if (defined $self->layer) {
+                $self->binmode( $self->layer );
+            };
+            return TRUE;
+        };
+    };
+
+    return FALSE;
+};
+
 =item new_tmpfile( I<args> : Hash ) : Self
 
 Creates the object with opened temporary and anonymous file for read/write.
@@ -513,6 +314,31 @@ constructors.
   $tmp = IO::Moose::File->new_tmpfile( output_record_separator => "\n" );
   $tmp->print("say");  # with eol
 
+=cut
+
+sub new_tmpfile {
+    ### IO::Moose::File::new_tmpfile: @_
+
+    my $class = shift;
+
+    my $io;
+
+    eval {
+        # Pass arguments to File::Temp constructor
+        my $tmp = File::Temp->new( @_ );
+
+        # create new empty object with new default mode
+        $io = $class->new( @_, file => $tmp, mode => '+>', copyfh => TRUE );
+    };
+    if ($EVAL_ERROR) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot new_tmpfile' );
+    };
+    assert_not_null($io) if ASSERT;
+
+    return $io;
+};
+
 =back
 
 =head1 METHODS
@@ -529,6 +355,52 @@ Opens the I<file> with L<perlfunc/open> function and returns self object.
   $io = IO::Moose::File->new;
   $io->open("/var/tmp/output", "w");
 
+=cut
+
+# Wrapper for CORE::open
+sub open {
+    ### IO::Moose::File::open: @_
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->open(FILENAME [,MODE]) or $io->open(FILENAME, IOLAYERS)'
+    ) if not blessed $self or @_ < 1 or @_ > 2 or ref $_[0];
+
+    my ($file, $mode) = @_;
+    my $layer = '';
+
+    my $status;
+    eval {
+        # check constraints
+        $file  = $self->_set_file($file);
+        $mode  = defined $mode ? $self->_set_mode($mode) : do { $self->_clear_mode; $self->mode };
+
+        if ($mode =~ s/(:.*)//) {
+            $layer = $self->_set_layer($1);
+            $mode  = $self->_set_mode($mode);
+        };
+
+        ### open: "open(fh, $mode, $file)"
+        $status = CORE::open( $self->fh, $mode, $file );
+    };
+    if (not $status) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot open' );
+    };
+    assert_true($status) if ASSERT;
+
+    $self->_set_error(FALSE);
+
+    $self->_open_tied if $self->tied;
+
+    if (${^TAINT} and not $self->tainted) {
+        $self->untaint;
+    };
+
+    return $self;
+};
+
 =item sysopen( I<file> : Str, I<sysmode> : Num, I<perms> : Num = 0600 ) : Self
 
 Opens the I<file> with L<perlfunc/sysopen> function and returns self object.
@@ -540,6 +412,63 @@ attribute is set based on I<sysmode> value.
   $io = IO::Moose::File->new;
   $io->open("/etc/hosts", O_RDONLY);
   print $io->mode;   # prints "<"
+
+=cut
+
+sub sysopen {
+    ### IO::Moose::File::sysopen: @_
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->sysopen(FILENAME, SYSMODE [,PERMS]])'
+    ) if not blessed $self or @_ < 2 or @_ > 3 or ref $_[0];
+
+    my ($file, $sysmode, $perms) = @_;
+    my $layer = '';
+
+    my $status;
+    eval {
+        # check constraints
+        $file    = $self->_set_file($file);
+        $sysmode = $self->_set_sysmode($sysmode);
+        $perms   = defined $perms ? $self->_set_perms($perms) : do { $self->_clear_perms; $self->perms };
+
+        # normalize mode string for tied handler
+        my $mode = ($sysmode & 2 ? '+' : '') . ($sysmode & 1 ? '>' : '<');
+        $self->_set_mode($mode);
+
+        ### open: "sysopen(fh, $file, $mode, $perms)"
+        $status = CORE::sysopen( $self->fh, $file, $sysmode, $perms );
+    };
+    if (not $status) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot open' );
+    };
+    assert_true($status) if ASSERT;
+
+    $self->_set_error(FALSE);
+
+    $self->_open_tied if $self->tied;
+
+    if (${^TAINT} and not $self->tainted) {
+        $self->untaint;
+    };
+
+    return $self;
+};
+
+
+# Also clear sysmode on close
+after 'close' => sub {
+    ### IO::Moose::File::close: @_
+
+    my ($self) = @_;
+    $self->_clear_sysmode;
+
+    return $self;
+};
+
 
 =item binmode(I<>) : Self
 
@@ -563,7 +492,93 @@ Returns self object.
   $io = IO::Moose::File->new( file => "/var/tmp/fromdos.txt" );
   $io->binmode(":crlf");
 
+=cut
+
+# Wrapper for CORE::binmode
+sub binmode {
+    ### IO::Moose::File::binmode: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->binmode([LAYER])'
+    ) if not blessed $self or @_ > 1;
+
+    my ($layer) = @_;
+
+    $layer = $self->_set_layer($layer) if defined $layer;
+
+    my $status;
+    eval {
+        if (defined $layer) {
+            $status = CORE::binmode( $self->fh, $layer );
+        }
+        else {
+            $status = CORE::binmode( $self->fh );
+        };
+    };
+
+    if (not $status) {
+        $self->_set_error(FALSE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot open' );
+    };
+    assert_true($status) if ASSERT;
+
+    return $self;
+};
+
 =back
+
+=cut
+
+
+# Aliasing tie hooks to real functions
+__PACKAGE__->meta->add_method( 'BINMODE' => sub {
+    ### IO::Moose::File::BINMODE: @_
+    shift()->binmode(@_);
+} );
+
+__PACKAGE__->meta->add_method( 'OPEN' => sub {
+    ### IO::Moose::File::OPEN: @_
+    my $self = shift;
+    return $self->sysopen(@_) if defined $_[1] and looks_like_number $_[1];
+    return $self->open(@_);
+} );
+
+
+# Make immutable finally
+__PACKAGE__->meta->make_immutable;
+
+
+1;
+
+
+=begin umlwiki
+
+= Class Diagram =
+
+[                     IO::Moose::File
+ -----------------------------------------------------------------
+ +file : Str|FileHandle|OpenHandle {ro}
+ +mode : OpenModeWithLayerStr|CanonOpenModeStr = "<" {ro}
+ +sysmode : Num {ro}
+ +perms : Num = 0666 {ro}
+ +layer : PerlIOLayerStr = "" {ro}
+ -----------------------------------------------------------------
+ +new( args : Hash ) : Self
+ +new_tmpfile( args : Hash ) : Self
+ +open( file : Str, mode : OpenModeWithLayerStr|CanonOpenModeStr = "<" ) : Self
+ +sysopen( file : Str, sysmode : Num, perms : Num = 0600 ) : Self
+ +binmode() : Self
+ +binmode( layer : PerlIOLayerStr ) : Self
+                                                                  ]
+
+[IO::Moose::File] ---|> [IO::Moose::Seekable] [IO::File]
+
+[IO::Moose::File] ---> <<exception>> [Exception::Fatal] [Exception::IO]
+
+=end umlwiki
 
 =head1 SEE ALSO
 

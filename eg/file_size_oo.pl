@@ -6,12 +6,8 @@ use lib 'lib', '../lib';
 
 {
     package My::IO;
-
     use Moose;
-
-    extends 'IO::Moose::Handle';
-
-    with 'IO::Moose::Seekable';
+    extends 'IO::Moose::Seekable';
 };
 
 

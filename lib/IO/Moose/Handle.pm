@@ -53,33 +53,80 @@ It also implements additional methods like C<say>, C<slurp>.
 
 =cut
 
+
 use 5.008;
+
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Moose;
+
+
+=head1 INHERITANCE
+
+=over 2
+
+=item *
+
+extends L<MooseX::GlobRef::Object>
+
+=over 2
+
+=item   *
+
+extends L<Moose::Object>
+
+=back
+
+=item *
+
+extends L<IO::Handle>
+
+=back
+
+=cut
 
 extends 'MooseX::GlobRef::Object', 'IO::Handle';
 
 
-use MooseX::Types::OpenModeStr;
-use MooseX::Types::CanonOpenModeStr;
+=head1 EXCEPTIONS
 
+=over
+
+=cut
 
 use Exception::Base (
     '+ignore_package'  => [ __PACKAGE__, qr/^MooseX?::/, qr/^Class::MOP::/ ],
 );
+
+=item L<Exception::Argument>
+
+Thrown whether method is called with wrong argument.
+
+=cut
+
 use Exception::Argument;
+
+=item L<Exception::Fatal>
+
+Thrown whether fatal error is occurred by core function.
+
+=cut
+
 use Exception::Fatal;
+
+=back
+
+=cut
 
 
 # TRUE and FALSE
 use constant::boolean;
 use English '-no_match_vars';
 
-use Scalar::Util 'blessed', 'reftype', 'weaken', 'looks_like_number';
+use Scalar::Util 'blessed', 'reftype', 'looks_like_number';
 use Symbol       'qualify', 'qualify_to_ref';
 
 # stat method
@@ -97,9 +144,21 @@ use Test::Assert ':assert';
 use if $ENV{PERL_DEBUG_IO_MOOSE_HANDLE}, 'Smart::Comments';
 
 
-# Standard handles
-our ($STDIN, $STDOUT, $STDERR);
+# Additional types
+use MooseX::Types::OpenModeStr;
+use MooseX::Types::CanonOpenModeStr;
 
+
+=head1 ATTRIBUTES
+
+=over
+
+=item file : Num|FileHandle|OpenHandle {ro}
+
+File (file descriptor number, file handle or IO object) as a parameter for new
+object or argument for C<fdopen> method.
+
+=cut
 
 # File to open (descriptor number or existing file handle)
 has 'file' => (
@@ -111,7 +170,14 @@ has 'file' => (
     predicate => 'has_file',
 );
 
-# File mode
+=item mode : CanonOpenModeStr {ro} = "<"
+
+File mode as a parameter for new object or argument for C<fdopen> method.  Can
+be Perl-style (C<E<lt>>, C<E<gt>>, C<E<gt>E<gt>>, etc.) or C-style (C<r>,
+C<w>, C<a>, etc.)
+
+=cut
+
 has 'mode' => (
     is        => 'ro',
     isa       => 'CanonOpenModeStr',
@@ -124,7 +190,12 @@ has 'mode' => (
     predicate => 'has_mode',
 );
 
-# File handle
+=item fh : GlobRef {ro}
+
+File handle used for internal IO operations.
+
+=cut
+
 has 'fh' => (
     is        => 'ro',
     isa       => 'GlobRef | FileHandle | OpenHandle',
@@ -132,23 +203,25 @@ has 'fh' => (
     writer    => '_set_fh',
 );
 
-# Flag that input should be automaticaly chomp-ed
+=item autochomp : Bool = false {rw}
+
+If is true value the input will be auto chomped.
+
+=cut
+
 has 'autochomp' => (
     is        => 'rw',
     isa       => 'Bool',
     default   => FALSE,
 );
 
-# Flag that non-blocking IO should be turned on
-has 'blocking' => (
-    is        => 'rw',
-    isa       => 'Bool',
-    default   => TRUE,
-    reader    => '_get_blocking',
-    writer    => '_set_blocking',
-);
+=item tainted : Bool = ${^TAINT} {rw}
 
-# Flag that input is tainted.
+If is false value and tainted mode is enabled the C<untaint> method will be
+called after C<fdopen>.
+
+=cut
+
 has 'tainted' => (
     is        => 'ro',
     isa       => 'Bool',
@@ -157,43 +230,78 @@ has 'tainted' => (
     writer    => '_set_tainted',
 );
 
-# Flag that file handle is a copy of file argument
+=item blocking : Bool = true {rw}
+
+If is false value the non-blocking IO will be turned on.
+
+=cut
+
+has 'blocking' => (
+    is        => 'rw',
+    isa       => 'Bool',
+    default   => TRUE,
+    reader    => '_get_blocking',
+    writer    => '_set_blocking',
+);
+
+=item copyfh : Bool = false {ro}
+
+If is true value the file handle will be copy of I<file> argument.  If
+I<file> argument is not a file handle, the L<Exception::Argument> is
+thrown.
+
+=cut
+
 has 'copyfh' => (
     is        => 'ro',
     isa       => 'Bool',
     default   => FALSE,
 );
 
-# Tie self object
+=item tied : Bool = true {ro}
+
+By default the object's file handle is tied variable, so it can be used with
+standard, non-OO interface (C<open>, C<print>, C<getc> functions and
+C<< <> >> operator).  This interface is slow and can be disabled if the OO
+interface only is used.
+
+=cut
+
 has 'tied' => (
     is        => 'ro',
     isa       => 'Bool',
     default   => TRUE,
 );
 
-# Use accessors rather than direct hash
+=item strict_accessors : Bool = false {rw}
+
+By default the accessors might be avoided for performance reason.  This
+optimization can be disabled if the attribute is set to true value.
+
+=cut
+
 has 'strict_accessors' => (
     is        => 'rw',
     isa       => 'Bool',
     default   => FALSE,
 );
 
-# Flag if error was occured in IO operation
-has '_error' => (
-    isa       => 'Bool',
-    default   => FALSE,
-    reader    => '_get_error',
-    writer    => '_set_error',
-);
+=item format_formfeed : Str {rw, var="$^L"}
 
-# Buffer for ungetc
-has '_ungetc_buffer' => (
-    isa       => 'Str',
-    default   => '',
-    reader    => '_get_ungetc_buffer',
-    writer    => '_set_ungetc_buffer',
-    predicate => '_has_ungetc_buffer',
-);
+=item format_line_break_characters : Str {rw, var="$:"}
+
+=item input_record_separator : Str {rw, var="$/"}
+
+=item output_field_separator : Str {rw, var="$,"}
+
+=item output_record_separator : Str {rw, var="$\"}
+
+These are attributes assigned with Perl's built-in variables. See L<perlvar>
+for complete descriptions.  The fields have accessors available as per file
+handle basis if called as C<$io-E<gt>accessor> or as global setting if called
+as C<IO::Moose::Handle-E<gt>accessor>.
+
+=cut
 
 # IO modifiers per file handle with special accessor
 {
@@ -217,6 +325,21 @@ has '_ungetc_buffer' => (
     };
 };
 
+# Flag if error was occured in IO operation
+has '_error' => (
+    isa       => 'Bool',
+    default   => FALSE,
+    reader    => '_get_error',
+    writer    => '_set_error',
+);
+
+=back
+
+=cut
+
+
+use namespace::clean -except => 'meta';
+
 
 ## no critic (ProhibitOneArgSelect)
 ## no critic (ProhibitBuiltinHomonyms)
@@ -224,6 +347,25 @@ has '_ungetc_buffer' => (
 ## no critic (RequireArgUnpacking)
 ## no critic (RequireCheckingReturnValueOfEval)
 ## no critic (RequireLocalizedPunctuationVars)
+
+=head1 IMPORTS
+
+=over
+
+=item use IO::Moose::Handle '$STDIN', '$STDOUT', '$STDERR';
+
+=item use IO::Moose::Handle ':std';
+
+=item use IO::Moose::Handle ':all';
+
+Creates handle as a copy of standard handle and imports it into caller's
+namespace.  This handles won't be created until explicit import.
+
+  use IO::Moose::Handle ':std';
+  print $STDOUT->autoflush(1);
+  print $STDIN->slurp;
+
+=cut
 
 # Import standard handles
 sub import {
@@ -250,6 +392,9 @@ sub import {
 
     my $caller = $setup{into} || caller($setup{into_level} || 0);
 
+    # Standard handles
+    our ($STDIN, $STDOUT, $STDERR);
+
     foreach my $var (keys %vars) {
         if ($var eq 'STDIN') {
             $STDIN  = __PACKAGE__->new( file => \*STDIN,  mode => '<', copyfh => 1 ) if not defined $STDIN;
@@ -272,6 +417,32 @@ sub import {
 };
 
 
+=back
+
+=head1 CONSTRUCTORS
+
+=over
+
+=item new( I<args> : Hash ) : Self
+
+Creates the C<IO::Moose::Handle> object and calls C<fdopen> method if the
+I<mode> parameter is defined.
+
+  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
+
+The object can be created with unopened file handle which can be opened later.
+
+  $in = IO::Moose::Handle->new( file => \*STDIN );
+  $in->fdopen("r");
+
+If I<copyfh> is true value and I<file> contains a file handle, this file
+handle is copied rather than new file handle created.
+
+  $tmp = File::Temp->new;
+  $io = IO::Moose::Handle->new( file => $tmp, copyfh => 1, mode => "w" );
+
+=cut
+
 # Object initialization
 sub BUILD {
     ### IO::Moose::Handle::BUILD: @_
@@ -292,28 +463,37 @@ sub _init_fh {
 
     assert_equals('GLOB', reftype $self) if ASSERT;
 
-    my $fd = $self->file;
+    my $strict_accessors = $self->strict_accessors;
+    my $tied = $strict_accessors ? $self->tied : *$self->{tied};
+    my $copyfh = $strict_accessors ? $self->copyfh : *$self->{copyfh};
+
+    my $fd = $strict_accessors ? $self->file : *$self->{file};
 
     # initialize anonymous handle
-    if ($self->copyfh) {
+    if ($copyfh) {
         # Copy file handle
         if (blessed $fd and $fd->isa(__PACKAGE__)) {
-            if ($self->strict_accessors) {
+            if ($strict_accessors) {
                 $self->_set_fh( $fd->fh );
             }
             else {
-                my $hashref = \%{*$self};
-                $hashref->{fh} = $fd->fh;
+                *$self->{fh} = $fd->fh;
             };
+            if (not $tied) {
+                my $fh = $fd->fh;
+                *$self = *$fh{IO};
+            }
         }
         elsif ((ref $fd || '') eq 'GLOB' or (reftype $fd || '') eq 'GLOB') {
             if ($self->strict_accessors) {
                 $self->_set_fh( $fd );
             }
             else {
-                my $hashref = \%{*$self};
-                $hashref->{fh} = $fd;
+                *$self->{fh} = $fd;
             };
+            if (not $tied) {
+                *$self = *$fd{IO};
+            }
         }
         else {
             Exception::Argument->throw(
@@ -328,14 +508,16 @@ sub _init_fh {
             $self->_set_fh( $fh );
         }
         else {
-            my $hashref = \%{*$self};
-            $hashref->{fh} = $fh;
+            *$self->{fh} = $fh;
+        };
+        if (not $tied) {
+            *$self = *$fh{IO};
         };
     };
 
     my $is_opened;
 
-    if (not $self->copyfh) {
+    if (not $copyfh) {
         $is_opened = eval { $self->_open_file };
         if ($EVAL_ERROR) {
             my $e = Exception::Fatal->catch;
@@ -344,7 +526,7 @@ sub _init_fh {
         assert_not_null($is_opened) if ASSERT;
     };
 
-    $self->_tie if $self->tied and not $is_opened;
+    $self->_tie if $tied and not $is_opened;
 
     return $self;
 };
@@ -443,7 +625,15 @@ sub _close_tied {
 };
 
 
-# Constructor
+=item new_from_fd( I<fd> : Num|FileHandle|OpenHandle, I<mode> : CanonOpenModeStr = "<") : Self
+
+Creates the C<IO::Moose::Handle> object and immediately opens the file handle
+based on arguments.
+
+  $out = IO::Moose::Handle->new_from_fd( \*STDOUT, "w" );
+
+=cut
+
 sub new_from_fd {
     ### IO::Moose::Handle::new_from_fd: @_
 
@@ -470,7 +660,29 @@ sub new_from_fd {
 };
 
 
-# fdopen method
+=back
+
+=head1 METHODS
+
+=over
+
+=item fdopen( I<fd> : Num|FileHandle|OpenHandle, I<mode> : CanonOpenModeStr = "<" ) : Self
+
+Opens the previously created file handle.  If the file was already opened, it
+is closed automatically and reopened without resetting its line counter.  The
+method also sets the C<file> and C<mode> attributes.
+
+  $out = IO::Moose::Handle->new;
+  $out->fdopen( \*STDOUT, "w" );
+
+  $dup = IO::Moose::Handle->new;
+  $dup->fdopen( $dup, "a" );
+
+  $stdin = IO::Moose::Handle->new;
+  $stdin->fdopen( 0, "r");
+
+=cut
+
 sub fdopen {
     ### IO::Moose::Handle::fdopen: @_
 
@@ -534,14 +746,17 @@ sub fdopen {
 };
 
 
-# Standard close IO method / tie hook
+=item close(I<>) : Self
+
+Closes the opened file handle.  The C<file> and C<mode> attributes are cleared
+after closing.
+
+=cut
+
 sub close {
     ### IO::Moose::Handle::close: @_
 
     my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
         message => 'Usage: $io->close()'
@@ -564,17 +779,14 @@ sub close {
 };
 
 
-# Standard eof IO method / tie hook
+=item eof(I<>) : Bool
+
+=cut
+
 sub eof {
     ### IO::Moose::Handle::eof: @_
 
     my $self = shift;
-
-    # derefer tie hook
-    if (blessed $self and reftype $self eq 'REF') {
-        my $param = shift;
-        $self = $$self;
-    };
 
     Exception::Argument->throw(
         message => 'Usage: $io->eof()'
@@ -592,14 +804,14 @@ sub eof {
 };
 
 
-# Standard fileno IO method / tie hook
+=item fileno(I<>) : Int
+
+=cut
+
 sub fileno {
     ### IO::Moose::Handle::fileno: @_
 
     my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
         message => 'Usage: $io->fileno()'
@@ -615,7 +827,10 @@ sub fileno {
 };
 
 
-# opened IO method
+=item opened(I<>) : Bool
+
+=cut
+
 sub opened {
     ### IO::Moose::Handle::opened: @_
 
@@ -634,18 +849,18 @@ sub opened {
 };
 
 
-# Standard print IO method / tie hook
+=item print( I<args> : Array ) : Self
+
+=cut
+
 sub print {
     ### IO::Moose::Handle::print: @_
 
     my $self = shift;
 
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
     Exception::Argument->throw(
         message => 'Usage: $io->print(ARGS)'
-    ) if not blessed $self;
+    ) if not ref $self;
 
     my $status;
     eval {
@@ -681,14 +896,14 @@ sub print {
 };
 
 
-# Standard printf IO method / tie hook
+=item printf( I<fmt> : Str = "", I<args> : Array = (I<>) ) : Self
+
+=cut
+
 sub printf {
     ### IO::Moose::Handle::printf: @_
 
     my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
 
     Exception::Argument->throw(
         message => 'Usage: $io->printf(FMT, [ARGS])'
@@ -718,7 +933,232 @@ sub printf {
 };
 
 
-# Wrapper for CORE::write
+=item sysread( out I<buf>, I<len> : Int, I<offset> : Int = 0 ) : Int
+
+=cut
+
+sub sysread {
+    ### IO::Moose::Handle::sysread: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->sysread(BUF, LEN [, OFFSET])'
+    ) if not ref $self or @_ < 2 or @_ > 3;
+
+    my $bytes;
+    eval {
+        $bytes = CORE::sysread($self->fh, $_[0], $_[1], $_[2] || 0);
+    };
+    if (not defined $bytes) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot sysread' );
+    };
+    assert_not_null($bytes) if ASSERT;
+    return $bytes;
+};
+
+
+=item syswrite( I<buf> : Str, I<len> : Int, I<offset> : Int = 0 ) : Int
+
+=cut
+
+sub syswrite {
+    ### IO::Moose::Handle::syswrite: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->syswrite(BUF [, LEN [, OFFSET]])'
+    ) if not ref $self or @_ < 1 or @_ > 3;
+
+    my $bytes;
+    eval {
+        if (defined($_[1])) {
+            $bytes = CORE::syswrite($self->fh, $_[0], $_[1], $_[2] || 0);
+        }
+        else {
+            $bytes = CORE::syswrite($self->fh, $_[0]);
+        };
+    };
+    if (not defined $bytes) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot syswrite' );
+    };
+    assert_not_null($bytes) if ASSERT;
+    return $bytes;
+};
+
+
+=item getc(I<>) : Char
+
+=cut
+
+sub getc {
+    ### IO::Moose::Handle::getc: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->getc()'
+    ) if not blessed $self or @_ > 0;
+
+    my $strict_accessors = $self->strict_accessors;
+
+    my $hashref;
+    $hashref = \%{*$self} if not $strict_accessors;
+
+    undef $!;
+    my $char;
+    eval {
+        $char = CORE::getc $self->fh;
+    };
+    if ($EVAL_ERROR or (not defined $char and $! and $! != Errno::EBADF)) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot getc' );
+        assert_false("Should throw an exception ealier") if ASSERT;
+    };
+
+    if (${^TAINT} and not ($strict_accessors ? $self->tainted : $hashref->{tainted}) and defined $char) {
+        $char =~ /(.*)/;
+        $char = $1;
+    };
+
+    return $char;
+};
+
+
+=item read( out I<buf>, I<len> : Int, I<offset> : Int = 0 ) : Int
+
+=cut
+
+sub read {
+    ### IO::Moose::Handle::read: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->read(BUF, LEN [, OFFSET])'
+    ) if not ref $self or @_ < 2 or @_ > 3;
+
+    my $bytes;
+    eval {
+        $bytes = CORE::read($self->fh, $_[0], $_[1], $_[2] || 0);
+    };
+    if (not defined $bytes) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot read' );
+    };
+    assert_not_null($bytes) if ASSERT;
+
+    return $bytes;
+};
+
+
+=item truncate( I<len> : Int ) : Self
+
+These are front ends for corresponding built-in functions.  Most of them
+throws exception on failure which can be caught with try/catch:
+
+  use Exception::Base;
+  eval {
+    open $f, "/etc/hostname";
+    $io = IO::Moose::Handle->new( file => $f, mode => "r" );
+    $c = $io->getc;
+  };
+  if ($@) {
+    my $e = Exception::Base->catch) {
+    warn "problem with /etc/hostname file: $e";
+  };
+
+The C<fdopen>, C<close>, C<print>, C<printf> and C<truncate> methods returns
+this object.
+
+=cut
+
+sub truncate {
+    ### IO::Moose::Handle::truncate: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->truncate(LEN)'
+    ) if not ref $self or @_ != 1 or not looks_like_number $_[0];
+
+    my $status;
+    eval {
+        $status = CORE::truncate($self->fh, $_[0]);
+    };
+    if ($EVAL_ERROR or not $status) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot truncate' );
+    };
+    assert_true($status) if ASSERT;
+
+    return $self;
+};
+
+
+=item write( I<buf> : Str, I<len> : Int, I<offset> : Int = 0 ) : Int
+
+The opposite of B<read>. The wrapper for the perl L<perlfunc/write> function is called
+C<format_write>.
+
+=cut
+
+sub write {
+    ### IO::Moose::Handle::write: @_
+
+    my $self = shift;
+
+    Exception::Argument->throw(
+        message => 'Usage: $io->write(BUF [, LEN [, OFFSET]])'
+    ) if not blessed $self or @_ > 3 or @_ < 1;
+
+    my ($buf, $len, $offset) = @_;
+
+    my $bytes;
+    my $status;
+    eval {
+        # clean IO modifiers
+        local $OUTPUT_RECORD_SEPARATOR = '';
+
+        {
+            # IO modifiers based on tied fh modifiers
+            my $oldfh = select *$self;
+            my $var = $OUTPUT_AUTOFLUSH;
+            select $self->fh;
+            $OUTPUT_AUTOFLUSH = $var;
+            select $oldfh;
+        };
+
+        my $output = substr($buf, $offset || 0, defined $len ? $len : length($buf));
+        $bytes = length($output);
+        $status = CORE::print { $self->fh } $output;
+    };
+    if (not $status) {
+        $self->_set_error(TRUE);
+        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
+        $e->throw( message => 'Cannot write' );
+    };
+    assert_true($status) if ASSERT;
+    assert_not_null($bytes) if ASSERT;
+
+    return $bytes;
+};
+
+
+=item format_write( I<format_name> : Str ) : Self
+
+The wrapper for perl L<perlfunc/format> function.
+
+=cut
+
 sub format_write {
     ### IO::Moose::Handle::format_write: @_
 
@@ -794,70 +1234,44 @@ sub format_write {
 };
 
 
-# Wrapper for CORE::readline. Method / tie hook
+=item readline(I<>) : Maybe[Str|Array]
+
+=cut
+
+# TODO POD
 sub readline {
     ### IO::Moose::Handle::readline: @_
 
-    my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
+    my ($self) = @_;
 
     Exception::Argument->throw(
         message => 'Usage: $io->readline()'
-    ) if not blessed $self or @_ > 0;
+    ) if not ref $self or @_ > 1;
 
-    my ($status, @lines, $line, $ungetc_begin, $ungetc_end);
+    my ($status, @lines, $line);
+    my $strict_accessors = $self->strict_accessors;
+
+    my $hashref;
+    $hashref = \%{*$self} if not $strict_accessors;
+
     my $wantarray = wantarray;
 
     undef $!;
     eval {
         # IO modifiers based on object's attributes
         local $INPUT_RECORD_SEPARATOR
-            = $self->has_input_record_separator
-            ? $self->_get_input_record_separator
+            = ($strict_accessors ? $self->has_input_record_separator : exists $hashref->{input_record_separator})
+            ? ($strict_accessors ? $self->_get_input_record_separator : $hashref->{input_record_separator})
             : $INPUT_RECORD_SEPARATOR;
 
         # scalar or array context
         if ($wantarray) {
-            my @ungetc_lines;
-            my $ungetc_string = '';
-            if (defined $self->_get_ungetc_buffer and $self->_get_ungetc_buffer ne '') {
-                # iterate for splitted ungetc buffer
-                $ungetc_begin = 0;
-                while (($ungetc_end = index $self->_get_ungetc_buffer, $/, $ungetc_begin) > -1) {
-                    push @ungetc_lines, substr $self->_get_ungetc_buffer, $ungetc_begin, $ungetc_end - $ungetc_begin + 1;
-                    $ungetc_begin = $ungetc_end + 1;
-                }
-                # last line of ungetc buffer is also the first line of real readline output
-                $ungetc_string = substr $self->_get_ungetc_buffer, $ungetc_begin;
-            }
-            $status = scalar(@lines = CORE::readline $self->fh);
-            $lines[0] = $ungetc_string . $lines[0] if defined $lines[0] and $lines[0] ne '';
-            unshift @lines, @ungetc_lines if @ungetc_lines;
-            chomp @lines if $self->autochomp;
+            $status = scalar(@lines = CORE::readline ($strict_accessors ? $self->fh : $hashref->{fh}));
+            chomp @lines if ($strict_accessors ? $self->autochomp : $hashref->{autochomp});
         }
         else {
-            my $ungetc_string = '';
-            if (defined $self->_get_ungetc_buffer and $self->_get_ungetc_buffer ne '') {
-                if (($ungetc_end = index $self->_get_ungetc_buffer, $/, 0) > -1) {
-                    $ungetc_string = substr $self->_get_ungetc_buffer, 0, $ungetc_end + 1;
-                }
-                else {
-                    $ungetc_string = $self->_get_ungetc_buffer;
-                };
-            };
-            if (defined $ungetc_end and $ungetc_end > -1) {
-                # only ungetc buffer
-                $status = TRUE;
-                $line = $ungetc_string;
-            }
-            else {
-                # also call real readline
-                $status = defined($line = CORE::readline $self->fh);
-                $line = $ungetc_string . (defined $line ? $line : '');
-            };
-            chomp $line if $self->autochomp;
+            $status = defined($line = CORE::readline ($strict_accessors ? $self->fh : $hashref->{fh}));
+            chomp $line if $strict_accessors ? $self->autochomp : $hashref->{autochomp};
         };
     };
     if ($EVAL_ERROR or (not $status and $!)) {
@@ -865,23 +1279,20 @@ sub readline {
         my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
         $e->throw( message => 'Cannot readline' );
     };
-    assert_true($status) if ASSERT;
-
-    # clean ungetc buffer
-    if (defined $self->_get_ungetc_buffer and $self->_get_ungetc_buffer ne '') {
-        if (not $wantarray and $ungetc_end > -1) {
-            $self->_set_ungetc_buffer( substr $self->_get_ungetc_buffer, $ungetc_end + 1 );
-        }
-        else {
-            $self->_set_ungetc_buffer( "" );
-        };
-    };
 
     return $wantarray ? @lines : $line;
 };
 
 
-# readline method in scalar context
+=item getline(I<>) : Str
+
+The C<readline> method which is called always in scalar context.
+
+  $io = IO::Moose::Handle->new( file=>\*STDIN, mode=>"r" );
+  push @a, $io->getline;  # reads only one line
+
+=cut
+
 sub getline {
     ### IO::Moose::Handle::getline: @_
 
@@ -906,7 +1317,15 @@ sub getline {
 };
 
 
-# readline method in array context
+=item getlines(I<>) : Array
+
+The C<readline> method which is called always in array context.
+
+  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
+  print scalar $io->getlines;  # error: can't call in scalar context.
+
+=cut
+
 sub getlines {
     ### IO::Moose::Handle::getlines: @_
 
@@ -935,7 +1354,17 @@ sub getlines {
 };
 
 
-# Add character to the ungetc buffer
+=item ungetc( I<ord> : Int ) : Self
+
+Pushes a character with the given ordinal value back onto the given handle's
+input stream.
+
+  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
+  $io->ungetc(ord('A'));
+  print $io->getc;  # prints A
+
+=cut
+
 sub ungetc {
     ### IO::Moose::Handle::ungetc: @_
 
@@ -947,188 +1376,27 @@ sub ungetc {
 
     my ($ord) = @_;
 
-    $self->_set_ungetc_buffer('') if not $self->_has_ungetc_buffer;
-    $self->_set_ungetc_buffer( chr($ord) . $self->_get_ungetc_buffer );
+    eval {
+        IO::Handle::ungetc( $self->fh, $ord );
+    };
+    if ($EVAL_ERROR) {
+        my $e = Exception::Fatal->catch;
+        $e->throw( message => 'Cannot ungetc' );
+    };
 
     return $self;
 };
 
 
-# Method wrapper for CORE::sysread
-sub sysread {
-    ### IO::Moose::Handle::sysread: @_
+=item say( I<args> : Array ) : Self
 
-    my $self = shift;
+The C<print> method with EOL character at the end.
 
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
+  $io = IO::Moose::Handle->new( file => \*STDOUT, mode => "w" );
+  $io->say("Hello!");
 
-    Exception::Argument->throw(
-        message => 'Usage: $io->sysread(BUF, LEN [, OFFSET])'
-    ) if not ref $self or @_ < 2 or @_ > 3;
+=cut
 
-    my $bytes;
-    eval {
-        $bytes = CORE::sysread($self->fh, $_[0], $_[1], $_[2] || 0);
-    };
-    if (not defined $bytes) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot sysread' );
-    };
-    assert_not_null($bytes) if ASSERT;
-    return $bytes;
-};
-
-
-# Method wrapper for CORE::syswrite
-sub syswrite {
-    ### IO::Moose::Handle::syswrite: @_
-
-    my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->syswrite(BUF [, LEN [, OFFSET]])'
-    ) if not ref $self or @_ < 1 or @_ > 3;
-
-    my $bytes;
-    eval {
-        if (defined($_[1])) {
-            $bytes = CORE::syswrite($self->fh, $_[0], $_[1], $_[2] || 0);
-        }
-        else {
-            $bytes = CORE::syswrite($self->fh, $_[0]);
-        };
-    };
-    if (not defined $bytes) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot syswrite' );
-    };
-    assert_not_null($bytes) if ASSERT;
-    return $bytes;
-};
-
-
-# Wrapper for CORE::getc. Method / tie hook
-sub getc {
-    ### IO::Moose::Handle::getc: @_
-
-    my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->getc()'
-    ) if not blessed $self or @_ > 0;
-
-    undef $!;
-    my $char;
-    eval {
-        if ($self->_has_ungetc_buffer and $self->_get_ungetc_buffer ne '') {
-            $char = substr $self->_get_ungetc_buffer, 0, 1;
-        }
-        else {
-            $char = CORE::getc $self->fh;
-        };
-    };
-    if ($EVAL_ERROR or (not defined $char and $! and $! != Errno::EBADF)) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot getc' );
-        assert_false("Should throw an exception ealier") if ASSERT;
-    };
-
-    # clean ungetc buffer
-    if ($self->_has_ungetc_buffer and $self->_get_ungetc_buffer ne '') {
-        $self->_set_ungetc_buffer( substr $self->_get_ungetc_buffer, 1 );
-    };
-
-    if (${^TAINT} and not $self->tainted and defined $char) {
-        $char =~ /(.*)/;
-        $char = $1;
-    };
-
-    return $char;
-};
-
-
-# Method wrapper for CORE::read
-sub read {
-    ### IO::Moose::Handle::read: @_
-
-    my $self = shift;
-
-    # derefer tie hook
-    $self = $$self if blessed $self and reftype $self eq 'REF';
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->read(BUF, LEN [, OFFSET])'
-    ) if not ref $self or @_ < 2 or @_ > 3;
-
-    my $bytes;
-    eval {
-        $bytes = CORE::read($self->fh, $_[0], $_[1], $_[2] || 0);
-    };
-    if (not defined $bytes) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot read' );
-    };
-    assert_not_null($bytes) if ASSERT;
-
-    return $bytes;
-};
-
-
-# Opposite to read
-sub write {
-    ### IO::Moose::Handle::write: @_
-
-    my $self = shift;
-
-    Exception::Argument->throw(
-        message => 'Usage: $io->write(BUF [, LEN [, OFFSET]])'
-    ) if not blessed $self or @_ > 3 or @_ < 1;
-
-    my ($buf, $len, $offset) = @_;
-
-    my $bytes;
-    my $status;
-    eval {
-        # clean IO modifiers
-        local $OUTPUT_RECORD_SEPARATOR = '';
-
-        {
-            # IO modifiers based on tied fh modifiers
-            my $oldfh = select *$self;
-            my $var = $OUTPUT_AUTOFLUSH;
-            select $self->fh;
-            $OUTPUT_AUTOFLUSH = $var;
-            select $oldfh;
-        };
-
-        my $output = substr($buf, $offset || 0, defined $len ? $len : length($buf));
-        $bytes = length($output);
-        $status = CORE::print { $self->fh } $output;
-    };
-    if (not $status) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot write' );
-    };
-    assert_true($status) if ASSERT;
-    assert_not_null($bytes) if ASSERT;
-
-    return $bytes;
-};
-
-
-# print with EOL
 sub say {
     ### IO::Moose::Handle::say: @_
 
@@ -1151,7 +1419,32 @@ sub say {
 };
 
 
-# Read whole file
+=item IO::Moose::Handle->slurp( I<file> : Num|FileHandle|OpenHandle, I<args> : Hash ) : Str|Array
+
+Creates the C<IO::Moose::Handle> object and returns its content as a scalar in
+scalar context or as an array in array context.
+
+  open $f, "/etc/passwd";
+  $passwd_file = IO::Moose::Handle->slurp($f);
+
+Additional I<args> are passed to C<IO::Moose::Handle> constructor.
+
+=item slurp(I<>) : Str|Array
+
+Reads whole file and returns its content as a scalar in scalar context or as
+an array in array context (like C<getlines> method).
+
+  open $f, "/etc/passwd";
+
+  $io1 = IO::Moose::Handle->new( file => $f, mode => "r" );
+  $passwd_file = $io1->slurp;
+
+  $io2 = IO::Moose::Handle->new( file => $f, mode => "r" );
+  $io2->autochomp(1);
+  @passwd_lines = $io2->slurp;
+
+=cut
+
 sub slurp {
     ### IO::Moose::Handle::slurp: @_
 
@@ -1204,32 +1497,18 @@ sub slurp {
 };
 
 
-# Wrapper for CORE::truncate
-sub truncate {
-    ### IO::Moose::Handle::truncate: @_
+=item stat(I<>) : File::Stat::Moose
 
-    my $self = shift;
+Returns C<File::Stat::Moose> object which represents status of file pointed by
+current file handle.
 
-    Exception::Argument->throw(
-        message => 'Usage: $io->truncate(LEN)'
-    ) if not ref $self or @_ != 1 or not looks_like_number $_[0];
+  open $f, "/etc/passwd";
+  $io = IO::Moose::Handle->new( file => $f, mode => "r" );
+  $st = $io->stat;
+  print $st->size;  # size of /etc/passwd file
 
-    my $status;
-    eval {
-        $status = CORE::truncate($self->fh, $_[0]);
-    };
-    if ($EVAL_ERROR or not $status) {
-        $self->_set_error(TRUE);
-        my $e = $EVAL_ERROR ? Exception::Fatal->catch : Exception::IO->new;
-        $e->throw( message => 'Cannot truncate' );
-    };
-    assert_true($status) if ASSERT;
+=cut
 
-    return $self;
-};
-
-
-# Interface for File::Stat::Moose
 sub stat {
     ### IO::Moose::Handle::stat: @_
 
@@ -1254,7 +1533,15 @@ sub stat {
 };
 
 
-# Pure Perl implementation
+=item error(I<>) : Bool
+
+Returns true value if the file handle has experienced any errors since it was
+opened or since the last call to C<clearerr>, or if the handle is invalid.
+
+It is recommended to use exceptions mechanism to handle errors.
+
+=cut
+
 sub error {
     ### IO::Moose::Handle::error: @_
 
@@ -1268,7 +1555,13 @@ sub error {
 };
 
 
-# Pure Perl implementation
+=item clearerr(I<>) : Bool
+
+Clear the given handle's error indicator.  Returns true value if the file
+handle is valid or false value otherwise.
+
+=cut
+
 sub clearerr {
     ### IO::Moose::Handle::clearerr: @_
 
@@ -1283,7 +1576,14 @@ sub clearerr {
 };
 
 
-# Uses IO::Handle
+=item sync(I<>) : Self
+
+Synchronizes a file's in-memory state with that on the physical medium.  It
+operates on file descriptor and it is low-level operation.  Returns this
+object on success or throws an exception.
+
+=cut
+
 sub sync {
     ### IO::Moose::Handle::sync: @_
 
@@ -1308,7 +1608,13 @@ sub sync {
 };
 
 
-# Pure Perl implementation
+=item flush(I<>) : Self
+
+Flushes any buffered data at the perlio API level.  Returns self object on
+success or throws an exception.
+
+=cut
+
 sub flush {
     ### IO::Moose::Handle::flush: @_
 
@@ -1345,7 +1651,13 @@ sub flush {
 };
 
 
-# flush + print
+=item printflush( I<args> : Array ) : Self
+
+Turns on autoflush, print I<args> and then restores the autoflush status.
+Returns self object on success or throws an exception.
+
+=cut
+
 sub printflush {
     ### IO::Moose::Handle::printflush: @_
 
@@ -1381,7 +1693,16 @@ sub printflush {
 };
 
 
-# Uses IO::Handle
+=item blocking(I<>) : Bool
+
+=item blocking( I<bool> : Bool ) : Bool
+
+If called with an argument blocking will turn on non-blocking IO if I<bool> is
+false, and turn it off if I<bool> is true.  C<blocking> will return the value
+of the previous setting, or the current setting if I<bool> is not given.
+
+=cut
+
 sub blocking {
     ### IO::Moose::Handle::blocking: @_
 
@@ -1421,7 +1742,14 @@ sub blocking {
 };
 
 
-# Uses IO::Handle
+=item untaint(I<>) : Self {rw}
+
+Marks the object as taint-clean, and as such data read from it will also be
+considered taint-clean.  It has meaning only if Perl is running in tainted
+mode (C<-T>).
+
+=cut
+
 sub untaint {
     ### IO::Moose::Handle::untaint: @_
 
@@ -1467,15 +1795,9 @@ sub DESTROY {
 sub TIEHANDLE {
     ### IO::Moose::Handle::TIEHANDLE: @_
 
-    my ($class, $instance) = @_;
+    my ($class, $self) = @_;
 
-    # tie object will be stored in scalar reference of main object
-    my $self = \$instance;
-
-    # weaken the real object, otherwise it won't be destroyed automatically
-    weaken $instance if ref $instance;
-
-    return bless $self => $class;
+    return $self;
 };
 
 
@@ -1485,8 +1807,42 @@ sub UNTIE {
 };
 
 
-# Add missing methods through Class::MOP
-#
+=item format_lines_left(I<>) : Str {var="$-"}
+
+=item format_lines_left( I<value> : Str ) : Str {var="$-"}
+
+=item format_lines_per_page(I<>) : Str {var="$="}
+
+=item format_lines_per_page( I<value> : Str ) : Str {var="$="}
+
+=item format_page_number(I<>) : Str {var="$%"}
+
+=item format_page_number( I<value> : Str ) : Str {var="$%"}
+
+=item input_line_number(I<>) : Str {var="$."}
+
+=item input_line_number( I<value> : Str ) : Str {var="$."}
+
+=item output_autoflush(I<>) : Str {var="$|"}
+
+=item output_autoflush( I<value> : Str ) : Str {var="$|"}
+
+=item autoflush(I<>) : Str {var="$|"}
+
+=item autoflush( I<value> : Str ) : Str {var="$|"}
+
+=item format_name(I<>) : Str {var="$~"}
+
+=item format_name( I<value> : Str ) : Str {var="$~"}
+
+=item format_top_name(I<>) : Str {var="$^"}
+
+=item format_top_name( I<value> : Str ) : Str {var="$^"}
+
+These are accessors assigned with Perl's built-in variables. See L<perlvar>
+for complete descriptions.
+
+=cut
 
 {
     # Generate accessors for IO modifiers (global and local)
@@ -1500,7 +1856,7 @@ sub UNTIE {
     foreach my $func (@standard_accessors) {
         my $var = qualify_to_ref(uc($func));
         __PACKAGE__->meta->add_method( $func => sub {
-            ### IO::Moose::Handle::$func\: @_
+            ### IO::Moose::Handle::$func: $func, @_
             my $self = shift;
             Exception::Argument->throw(
                 message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
@@ -1535,7 +1891,7 @@ sub UNTIE {
     foreach my $func (@output_accessors) {
         my $var = qualify_to_ref(uc($func));
         __PACKAGE__->meta->add_method( $func => sub {
-            ### IO::Moose::Handle::$func\: @_
+            ### IO::Moose::Handle::$func: $func, @_
             my $self = shift;
             Exception::Argument->throw(
                 message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
@@ -1569,7 +1925,7 @@ sub UNTIE {
     foreach my $func (@format_name_accessors) {
         my $var = qualify_to_ref(uc($func));
         __PACKAGE__->meta->add_method( $func => sub {
-            ### IO::Moose::Handle::$func\: @_
+            ### IO::Moose::Handle::$func: $func, @_
             my $self = shift;
             Exception::Argument->throw(
                 message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
@@ -1597,15 +1953,30 @@ sub UNTIE {
 # Aliasing accessor
 __PACKAGE__->meta->alias_method('autoflush' => \&output_autoflush);
 
+
 # Aliasing tie hooks to real functions
-foreach my $func (qw{ close eof fileno print printf readline getc }) {
-    __PACKAGE__->meta->alias_method(
-        uc($func) => __PACKAGE__->meta->get_method($func)->body
+foreach my $hook (qw{ CLOSE FILENO PRINT PRINTF READLINE GETC }) {
+    my $method = lc($hook);
+    __PACKAGE__->meta->add_method(
+        $hook => sub {
+            ### IO::Moose::Handle::$hook: $hook, @_
+            shift()->$method(@_)
+        }
     );
 };
-foreach my $func (qw{ read write }) {
-    __PACKAGE__->meta->alias_method(
-        uc($func) => __PACKAGE__->meta->get_method("sys$func")->body
+
+__PACKAGE__->meta->add_method( 'EOF' => sub {
+    ### IO::Moose::Handle::EOF: @_
+    shift()->eof;
+} );
+
+foreach my $hook (qw{ READ WRITE }) {
+    my $method = 'sys' . lc($hook);
+    __PACKAGE__->meta->add_method(
+        $hook => sub {
+            ### IO::Moose::Handle::$hook: $hook, @_
+            shift()->$method(@_)
+        }
     );
 };
 
@@ -1617,7 +1988,7 @@ __PACKAGE__->meta->make_immutable;
 1;
 
 
-__END__
+=back
 
 =begin umlwiki
 
@@ -1639,7 +2010,6 @@ __END__
  +output_field_separator : Str {rw}
  +output_record_separator : Str {rw}
  #_error : Bool
- #_ungetc_buffer : Str
  --------------------------------------------------------------------------------------
  <<create>> +new( args : Hash ) : Self
  <<create>> +new_from_fd( fd : Num|FileHandle|OpenHandle, mode : CanonOpenModeStr ) : Self
@@ -1651,7 +2021,7 @@ __END__
  +fileno() : Int
  +print( args : Array ) : Self
  +printf( fmt : Str = "", args : Array = () ) : Self
- +readline() : Str|Array
+ +readline() : Maybe[Str|Array]
  +getline() : Str
  +getlines() : Array
  +ungetc( ord : Int ) : Self
@@ -1705,370 +2075,6 @@ __END__
 
 =end umlwiki
 
-=head1 IMPORTS
-
-=over
-
-=item use IO::Moose::Handle '$STDIN', '$STDOUT', '$STDERR';
-
-=item use IO::Moose::Handle ':std';
-
-=item use IO::Moose::Handle ':all';
-
-Creates handle as a copy of standard handle and imports it into caller's
-namespace.  This handles won't be created until explicit import.
-
-  use IO::Moose::Handle ':std';
-  print $STDOUT->autoflush(1);
-  print $STDIN->slurp;
-
-=back
-
-=head1 INHERITANCE
-
-=over 2
-
-=item *
-
-extends L<MooseX::GlobRef::Object>
-
-=over 2
-
-=item   *
-
-extends L<Moose::Object>
-
-=back
-
-=item *
-
-extends L<IO::Handle>
-
-=back
-
-=head1 EXCEPTIONS
-
-=over
-
-=item L<Exception::Argument>
-
-Thrown whether method is called with wrong argument.
-
-=item L<Exception::Fatal>
-
-Thrown whether fatal error is occurred by core function.
-
-=back
-
-=head1 ATTRIBUTES
-
-=over
-
-=item file : Num|FileHandle|OpenHandle {ro}
-
-File (file descriptor number, file handle or IO object) as a parameter for new
-object or argument for C<fdopen> method.
-
-=item mode : CanonOpenModeStr {ro} = "<"
-
-File mode as a parameter for new object or argument for C<fdopen> method.  Can
-be Perl-style (C<E<lt>>, C<E<gt>>, C<E<gt>E<gt>>, etc.) or C-style (C<r>,
-C<w>, C<a>, etc.)
-
-=item fh : GlobRef {ro}
-
-File handle used for internal IO operations.
-
-=item autochomp : Bool = false {rw}
-
-If is true value the input will be auto chomped.
-
-=item tainted : Bool = ${^TAINT} {rw}
-
-If is false value and tainted mode is enabled the C<untaint> method will be
-called after C<fdopen>.
-
-=item blocking : Bool = true {rw}
-
-If is false value the non-blocking IO will be turned on.
-
-=item copyfh : Bool = false {ro}
-
-If is true value the file handle will be copy of I<file> argument.  If
-I<file> argument is not a file handle, the L<Exception::Argument> is
-thrown.
-
-=item strict_accessors : Bool = false {rw}
-
-By default the accessors might be avoided for performance reason.  This
-optimization can be disabled if the attribute is set to true value.
-
-=item format_formfeed : Str {rw, var="$^L"}
-
-=item format_line_break_characters : Str {rw, var="$:"}
-
-=item input_record_separator : Str {rw, var="$/"}
-
-=item output_field_separator : Str {rw, var="$,"}
-
-=item output_record_separator : Str {rw, var="$\"}
-
-These are attributes assigned with Perl's built-in variables. See L<perlvar>
-for complete descriptions.  The fields have accessors available as per file
-handle basis if called as C<$io-E<gt>accessor> or as global setting if called
-as C<IO::Moose::Handle-E<gt>accessor>.
-
-=back
-
-=head1 CONSTRUCTORS
-
-=over
-
-=item new( I<args> : Hash ) : Self
-
-Creates the C<IO::Moose::Handle> object and calls C<fdopen> method if the
-I<mode> parameter is defined.
-
-  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
-
-The object can be created with unopened file handle which can be opened later.
-
-  $in = IO::Moose::Handle->new( file => \*STDIN );
-  $in->fdopen("r");
-
-If I<copyfh> is true value and I<file> contains a file handle, this file
-handle is copied rather than new file handle created.
-
-  $tmp = File::Temp->new;
-  $io = IO::Moose::Handle->new( file => $tmp, copyfh => 1, mode => "w" );
-
-=item new_from_fd( I<fd> : Num|FileHandle|OpenHandle, I<mode> : CanonOpenModeStr = "<") : Self
-
-Creates the C<IO::Moose::Handle> object and immediately opens the file handle
-based on arguments.
-
-  $out = IO::Moose::Handle->new_from_fd( \*STDOUT, "w" );
-
-=item slurp( I<file> : Num|FileHandle|OpenHandle, I<args> : Hash ) : Str|Array
-
-Creates the C<IO::Moose::Handle> object and returns its content as a scalar in
-scalar context or as an array in array context.
-
-  open $f, "/etc/passwd";
-  $passwd_file = IO::Moose::Handle->slurp($f);
-
-Additional I<args> are passed to C<IO::Moose::Handle> constructor.
-
-=back
-
-=head1 METHODS
-
-=over
-
-=item fdopen( I<fd> : Num|FileHandle|OpenHandle, I<mode> : CanonOpenModeStr = "<" ) : Self
-
-Opens the previously created file handle.  If the file was already opened, it
-is closed automatically and reopened without resetting its line counter.  The
-method also sets the C<file> and C<mode> attributes.
-
-  $out = IO::Moose::Handle->new;
-  $out->fdopen( \*STDOUT, "w" );
-
-  $dup = IO::Moose::Handle->new;
-  $dup->fdopen( $dup, "a" );
-
-  $stdin = IO::Moose::Handle->new;
-  $stdin->fdopen( 0, "r");
-
-=item close(I<>) : Self
-
-Closes the opened file handle.  The C<file> and C<mode> attributes are cleared
-after closing.
-
-=item eof(I<>) : Bool
-
-=item fileno(I<>) : Int
-
-=item print( I<args> : Array ) : Self
-
-=item printf( I<fmt> : Str = "", I<args> : Array = (I<>) ) : Self
-
-=item readline(I<>) : Str|Array
-
-=item sysread( out I<buf>, I<len> : Int, I<offset> : Int = 0 ) : Int
-
-=item syswrite( I<buf> : Str, I<len> : Int, I<offset> : Int = 0 ) : Int
-
-=item getc(I<>) : Char
-
-=item read( out I<buf>, I<len> : Int, I<offset> : Int = 0 ) : Int
-
-=item truncate( I<len> : Int ) : Self
-
-These are front ends for corresponding built-in functions.  Most of them
-throws exception on failure which can be caught with try/catch:
-
-  use Exception::Base;
-  eval {
-    open $f, "/etc/hostname";
-    $io = IO::Moose::Handle->new( file => $f, mode => "r" );
-    $c = $io->getc;
-  };
-  if ($@) {
-    my $e = Exception::Base->catch) {
-    warn "problem with /etc/hostname file: $e";
-  };
-
-The C<fdopen>, C<close>, C<print>, C<printf> and C<truncate> methods returns
-this object.
-
-=item opened(I<>) : Bool
-
-Returns true value if the object has opened file handle, false otherwise.
-
-=item write( I<buf> : Str, I<len> : Int, I<offset> : Int = 0 ) : Int
-
-The opposite of B<read>. The wrapper for the perl L<perlfunc/write> function is called
-C<format_write>.
-
-=item format_write( I<format_name> : Str ) : Self
-
-The wrapper for perl L<perlfunc/format> function.
-
-=item getline(I<>) : Str
-
-The C<readline> method which is called always in scalar context.
-
-  $io = IO::Moose::Handle->new( file=>\*STDIN, mode=>"r" );
-  push @a, $io->getline;  # reads only one line
-
-=item getlines(I<>) : Array
-
-The C<readline> method which is called always in array context.
-
-  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
-  print scalar $io->getlines;  # error: can't call in scalar context.
-
-=item ungetc( I<ord> : Int ) : Self
-
-Pushes a character with the given ordinal value back onto the given handle's
-input stream.  In fact this is emulated in pure-Perl code and can't be mixed
-with non IO::Moose::Handle objects.
-
-  $io = IO::Moose::Handle->new( file => \*STDIN, mode => "r" );
-  $io->ungetc(ord('A'));
-  print $io->getc;  # prints A
-
-=item say( I<args> : Array ) : Self
-
-The C<print> method with EOL character at the end.
-
-  $io = IO::Moose::Handle->new( file => \*STDOUT, mode => "w" );
-  $io->say("Hello!");
-
-=item slurp(I<>) : Str|Array
-
-Reads whole file and returns its content as a scalar in scalar context or as
-an array in array context (like C<getlines> method).
-
-  open $f, "/etc/passwd";
-
-  $io1 = IO::Moose::Handle->new( file => $f, mode => "r" );
-  $passwd_file = $io1->slurp;
-
-  $io2 = IO::Moose::Handle->new( file => $f, mode => "r" );
-  $io2->autochomp(1);
-  @passwd_lines = $io2->slurp;
-
-=item stat(I<>) : File::Stat::Moose
-
-Returns C<File::Stat::Moose> object which represents status of file pointed by
-current file handle.
-
-  open $f, "/etc/passwd";
-  $io = IO::Moose::Handle->new( file => $f, mode => "r" );
-  $st = $io->stat;
-  print $st->size;  # size of /etc/passwd file
-
-=item error(I<>) : Bool
-
-Returns true value if the file handle has experienced any errors since it was
-opened or since the last call to C<clearerr>, or if the handle is invalid.
-
-It is recommended to use exceptions mechanism to handle errors.
-
-=item clearerr(I<>) : Bool
-
-Clear the given handle's error indicator.  Returns true value if the file
-handle is valid or false value otherwise.
-
-=item sync(I<>) : Self
-
-Synchronizes a file's in-memory state with that on the physical medium.  It
-operates on file descriptor and it is low-level operation.  Returns this
-object on success or throws an exception.
-
-=item flush(I<>) : Self
-
-Flushes any buffered data at the perlio API level.  Returns self object on
-success or throws an exception.
-
-=item printflush( I<args> : Array ) : Self
-
-Turns on autoflush, print I<args> and then restores the autoflush status.
-Returns self object on success or throws an exception.
-
-=item blocking(I<>) : Bool
-
-=item blocking( I<bool> : Bool ) : Bool
-
-If called with an argument blocking will turn on non-blocking IO if I<bool> is
-false, and turn it off if I<bool> is true.  C<blocking> will return the value
-of the previous setting, or the current setting if I<bool> is not given.
-
-=item untaint(I<>) : Self {rw}
-
-Marks the object as taint-clean, and as such data read from it will also be
-considered taint-clean.  It has meaning only if Perl is running in tainted
-mode (C<-T>).
-
-=item format_lines_left(I<>) : Str {var="$-"}
-
-=item format_lines_left( I<value> : Str ) : Str {var="$-"}
-
-=item format_lines_per_page(I<>) : Str {var="$="}
-
-=item format_lines_per_page( I<value> : Str ) : Str {var="$="}
-
-=item format_page_number(I<>) : Str {var="$%"}
-
-=item format_page_number( I<value> : Str ) : Str {var="$%"}
-
-=item input_line_number(I<>) : Str {var="$."}
-
-=item input_line_number( I<value> : Str ) : Str {var="$."}
-
-=item output_autoflush(I<>) : Str {var="$|"}
-
-=item output_autoflush( I<value> : Str ) : Str {var="$|"}
-
-=item autoflush(I<>) : Str {var="$|"}
-
-=item autoflush( I<value> : Str ) : Str {var="$|"}
-
-=item format_name(I<>) : Str {var="$~"}
-
-=item format_name( I<value> : Str ) : Str {var="$~"}
-
-=item format_top_name(I<>) : Str {var="$^"}
-
-=item format_top_name( I<value> : Str ) : Str {var="$^"}
-
-These are accessors assigned with Perl's built-in variables. See L<perlvar>
-for complete descriptions.
-
-=back
-
 =head1 DEBUGGING
 
 The debugging mode can be enabled if C<PERL_DEBUG_IO_MOOSE_HANDLE> environment
@@ -2080,8 +2086,8 @@ The run-time assertions can be enabled with L<Test::Assert> module.
 =head1 INTERNALS
 
 This module uses L<MooseX::GlobRef::Object> and stores the object's attributes
-in glob reference.  They can be accessed with C<do { \%{*$self} }-E<gt>{attr}>
-expression or with standard accessors C<$self-E<gt>attr>.
+in glob reference.  They can be accessed with C<< *$self->{attr} >>
+expression or with standard accessors C<< $self->attr >>.
 
 There are two handles used for IO operations: the original handle used for
 real IO operations and tied handle which hooks IO functions interface.
@@ -2094,7 +2100,7 @@ The OO-style uses original handle stored in I<fh> field.
   # Implementation:
   package IO::Moose::Handle;
   sub print {
-      $self = shift;
+      my $self = shift;
       CORE::print { $self->fh } @_
   }
 
@@ -2106,10 +2112,9 @@ handle tied to proxy object which operates on original handle.
 
   # Implementation:
   package IO::Moose::Handle;
-  \*PRINT = &IO::Moose::Handle::print;
+  sub PRINT { shift()->print(@_) };
   sub print {
-      $self = shift;
-      $self = $$self if blessed $self and reftype $self eq 'REF';
+      my $self = shift;
       CORE::print { $self->fh } @_
   }
 

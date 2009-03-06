@@ -129,12 +129,26 @@ sub test_readline_wantarray {
         $obj->untaint;
     };
 
-    my @c = $obj->readline;
-    assert_true(scalar @c > 1, 'scalar @c > 1');
+    {
+        my @c = $obj->readline;
+        assert_true(scalar @c > 1, 'scalar @c > 1');
 
-    if (${^TAINT}) {
-        assert_false(tainted $c[0]);
+        if (${^TAINT}) {
+            assert_false(tainted $c[0]);
+        };
     };
+
+    # returns undef on eof in scalar context
+    {
+        my $c = $obj->readline;
+        assert_null($c, '$c');
+    };
+
+    # returns empty list on eof in array context 
+    {
+        my @c = $obj->readline;
+        assert_equals(0, scalar @c);
+    }; 
 };
 
 sub test_readline_ungetc_wantscalar {

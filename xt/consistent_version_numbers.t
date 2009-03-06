@@ -12,7 +12,7 @@ use Test::More qw(no_plan); ## no critic (Bangs::ProhibitNoPlan)
 
 
 my $last_version = undef;
-find({wanted => \&check_version, no_chdir => 1}, 'blib');
+find({wanted => \&check_version, no_chdir => 1}, 'lib');
 if (! defined $last_version) {
     ## no critic (RequireInterpolationOfMetachars)
     fail('Failed to find any files with $VERSION');

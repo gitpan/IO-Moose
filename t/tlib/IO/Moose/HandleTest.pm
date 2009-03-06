@@ -8,6 +8,7 @@ use parent 'Test::Unit::TestCase';
 
 use Test::Assert ':all';
 
+use Class::Inspector;
 use Scalar::Util 'reftype', 'tainted';
 
 use IO::Handle;
@@ -49,6 +50,90 @@ sub test___isa {
     assert_isa('Moose::Object', $obj);
     assert_isa('MooseX::GlobRef::Object', $obj);
     assert_equals('GLOB', reftype $obj);
+};
+
+sub test___api {
+    my @api = grep { ! /^_/ } @{ Class::Inspector->functions('IO::Moose::Handle') };
+    assert_deep_equals( [ qw{
+        BUILD
+        CLOSE
+        DESTROY
+        EOF
+        FILENO
+        GETC
+        PRINT
+        PRINTF
+        READ
+        READLINE
+        TIEHANDLE
+        UNTIE
+        WRITE
+        autochomp
+        autoflush
+        blocking
+        clear_format_formfeed
+        clear_format_line_break_characters
+        clear_input_record_separator
+        clear_output_field_separator
+        clear_output_record_separator
+        clearerr
+        close
+        copyfh
+        eof
+        error
+        fdopen
+        fh
+        file
+        fileno
+        flush
+        format_formfeed
+        format_line_break_characters
+        format_lines_left
+        format_lines_per_page
+        format_name
+        format_page_number
+        format_top_name
+        format_write
+        getc
+        getline
+        getlines
+        has_file
+        has_format_formfeed
+        has_format_line_break_characters
+        has_input_record_separator
+        has_mode
+        has_output_field_separator
+        has_output_record_separator
+        import
+        input_line_number
+        input_record_separator
+        meta
+        mode
+        new
+        new_from_fd
+        opened
+        output_autoflush
+        output_field_separator
+        output_record_separator
+        print
+        printf
+        printflush
+        read
+        readline
+        say
+        slurp
+        stat
+        strict_accessors
+        sync
+        sysread
+        syswrite
+        tainted
+        tied
+        truncate
+        ungetc
+        untaint
+        write
+    } ], \@api );
 };
 
 sub test_fdopen_fh {
@@ -121,23 +206,21 @@ sub test_new_file_mode {
 };
 
 sub test_new_open_tied {
-    my $obj = IO::Moose::File->new( file => $filename_in, tied => 1 );
+    my $obj = IO::Moose::File->new( file => $filename_in, autochomp => 1, tied => 1 );
     assert_isa('IO::Moose::File', $obj);
 
-    assert_equals("package IO::Moose::HandleTest;\n", $obj->readline);
+    assert_equals("package IO::Moose::HandleTest;", $obj->readline);
 
-    assert_equals("\n", <$obj>);
+    assert_equals("", <$obj>);
 };
 
 sub test_new_open_no_tied {
-    my $obj = IO::Moose::File->new( file => $filename_in, tied => 0 );
+    my $obj = IO::Moose::File->new( file => $filename_in, autochomp => 1, tied => 0 );
     assert_isa('IO::Moose::File', $obj);
 
-    assert_equals("package IO::Moose::HandleTest;\n", $obj->readline);
+    assert_equals("package IO::Moose::HandleTest;", $obj->readline);
 
-    assert_raises( ['Exception::Warning'], sub {
-        <$obj>;
-    } );
+    assert_equals("\n", <$obj>);
 };
 
 sub test_new_from_fd {

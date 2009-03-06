@@ -46,10 +46,11 @@ It also implements additional methods like C<say>, C<slurp>.
 =cut
 
 use 5.006;
+
 use strict;
 use warnings;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Class::MOP;
 
@@ -60,6 +61,29 @@ use Exception::Base (
 
 
 ## no critic (RequireArgUnpacking)
+
+=head1 IMPORTS
+
+=over
+
+=item use IO::Moose [I<modules>]
+
+Loads a modules from C<IO::Moose::*> hierarchy.  I.e. C<Handle> parameter
+loads C<IO::Moose::Handle> module.
+
+  use IO::Moose 'Handle', 'File';  # loads IO::Moose::Handle and ::File.
+
+If I<modules> list is empty, it loads following modules at default:
+
+=over
+
+=item * L<IO::Moose::Handle>
+
+=item * L<IO::Moose::File>
+
+=back
+
+=cut
 
 sub import {
     shift;
@@ -75,7 +99,7 @@ sub import {
 1;
 
 
-__END__
+=back
 
 =begin umlwiki
 
@@ -116,29 +140,6 @@ __END__
 [IO::Moose] ---> <<use>> [Class::MOP]
 
 =end umlwiki
-
-=head1 IMPORTS
-
-=over
-
-=item use IO::Moose [I<modules>]
-
-Loads a modules from C<IO::Moose::*> hierarchy.  I.e. C<Handle> parameter
-loads C<IO::Moose::Handle> module.
-
-  use IO::Moose 'Handle', 'File';  # loads IO::Moose::Handle and ::File.
-
-If I<modules> list is empty, it loads following modules at default:
-
-=over
-
-=item * IO::Moose::Handle
-
-=item * IO::Moose::File
-
-=back
-
-=back
 
 =head1 SEE ALSO
 

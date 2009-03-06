@@ -1,4 +1,23 @@
 ------------------------------------------------------------------------
+0.10 | Piotr Roszatycki <dexter@cpan.org> | 2009-03-05
+
+Fixes:
+
+* Cleans up temporary files even if unit's set_up is failed.
+
+* IO::Moose::Handle:
+  * Method "readline" returns undef on EOF.
+
+Changes:
+
+* Requires MooseX::GlobRef >= 0.07.
+* IO::Moose::Handle:
+  * The object and the attribute "fh" are the same IO handle if the attribute
+    "tied" is false value.
+  * TIEHANDLE doesn't create reference to normal object.
+  * Method "ungetc" calls IO::Handle::ungetc. 
+
+------------------------------------------------------------------------
 0.09 | Piotr Roszatycki <dexter@debian.org> | 2009-02-01
 
 Fixes:

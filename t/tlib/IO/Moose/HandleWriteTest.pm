@@ -8,17 +8,21 @@ use parent 'Test::Unit::TestCase';
 
 use Test::Assert ':all';
 
+use File::Spec;
 use File::Temp;
 use Scalar::Util 'reftype', 'tainted';
 
 use IO::Moose::Handle;
 
-my ($filename_out, $fh_out, $obj, @vars);
+my ($filename_out, $fh_out, $obj, @vars, @filenames_out);
 
 sub set_up {
-    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', TMPDIR =>1 );
+    @vars = ($=, $-, $~, $^, $^L, $\, $,);
+
+    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', DIR => File::Spec->tmpdir );
 
     open $fh_out, '>', $filename_out or Exception::IO->throw;
+    push @filenames_out, $filename_out;
 
     $obj = IO::Moose::Handle->new;
     assert_isa('IO::Moose::Handle', $obj);
@@ -26,8 +30,10 @@ sub set_up {
 
     $obj->fdopen($fh_out, 'w');
     assert_not_null($obj->fileno);
+};
 
-    @vars = ($=, $-, $~, $^, $^L, $\, $,);
+sub DESTROY {
+    unlink foreach @filenames_out;
 };
 
 sub tear_down {

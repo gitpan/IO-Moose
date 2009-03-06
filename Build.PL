@@ -24,7 +24,7 @@ my $build = Module::Build->new(
         'Exception::Fatal'        => 0,
         'Exception::System'       => 0.11,
         'File::Stat::Moose'       => 0.03,
-        'MooseX::GlobRef::Object' => 0.05,
+        'MooseX::GlobRef'         => 0.07,
         'Task::Weaken'            => 0,
         'Test::Assert'            => 0.04,
     },
@@ -33,6 +33,7 @@ my $build = Module::Build->new(
     },
     build_requires => {
         'parent'                  => 0,
+        'Class::Inspector'        => 0,
         'Exception::Warning'      => 0,
         'Taint::Runtime'          => 0,
         'Test::Unit::Lite'        => 0.11,

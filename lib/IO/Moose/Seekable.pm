@@ -47,18 +47,73 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Moose;
+
+
+=head1 INHERITANCE
+
+=over 2
+
+=item *
+
+extends L<IO::Moose::Handle>
+
+=over 2
+
+=item   *
+
+extends L<MooseX::GlobRef::Object>
+
+=over 2
+
+=item     *
+
+extends L<Moose::Object>
+
+=back
+
+=back
+
+=item *
+
+extends L<IO::Seekable>
+
+=over 2
+
+=item   *
+
+extends L<IO::Handle>
+
+=back
+
+=back
+
+=cut
 
 extends 'IO::Moose::Handle', 'IO::Seekable';
 
 
+=head1 EXCEPTIONS
+
+=over
+
+=item L<Exception::Argument>
+
+Thrown whether method is called with wrong argument.
+
+=item L<Exception::Fatal>
+
+Thrown whether fatal error is occurred by core function.
+
+=back
+
+=cut
+
 use Exception::Base (
     '+ignore_package' => [ __PACKAGE__ ],
 );
-use Exception::Argument;
-use Exception::Fatal;
 
 
 use constant::boolean;
@@ -74,11 +129,49 @@ use Test::Assert ':assert';
 use if $ENV{PERL_DEBUG_IO_MOOSE_SEEKABLE}, 'Smart::Comments';
 
 
+use namespace::clean -except => 'meta';
+
+
 ## no critic (ProhibitBuiltinHomonyms)
 ## no critic (RequireArgUnpacking)
 ## no critic (RequireCheckingReturnValueOfEval)
 
-# Wrapper for CORE::seek
+=head1 METHODS
+
+=over
+
+=item seek( I<pos> : Int, I<whence> : Int ) : Self
+
+Seek the file to position I<pos>, relative to I<whence>:
+
+=over
+
+=item I<whence>=0 (SEEK_SET)
+
+I<pos> is absolute position. (Seek relative to the start of the file)
+
+=item I<whence>=1 (SEEK_CUR)
+
+I<pos> is an offset from the current position. (Seek relative to current)
+
+=item I<whence>=2 (SEEK_END)
+
+=back
+
+I<pos> is an offset from the end of the file. (Seek relative to end)
+
+The SEEK_* constants can be imported from the L<Fcntl> module if you don't
+wish to use the numbers 0, 1 or 2 in your code.  The SEEK_* constants are more
+portable.
+
+Returns self object on success or throws an exception.
+
+  use Fcntl ':seek';
+  $file->seek(0, SEEK_END);
+  $file->say("*** End of file");
+
+=cut
+
 sub seek {
     ### IO::Moose::Seekabe::seek: @_
 
@@ -106,7 +199,15 @@ sub seek {
 };
 
 
-# Wrapper for CORE::sysseek
+=item sysseek( I<pos> : Int, I<whence> : Int ) : Int
+
+Uses the system call lseek(2) directly so it can be used with B<sysread> and
+B<syswrite> methods.
+
+Returns the new position or throws an exception.
+
+=cut
+
 sub sysseek {
     ### IO::Moose::Seekabe::sysseek: @_
 
@@ -131,7 +232,12 @@ sub sysseek {
 };
 
 
-# Wrapper for CORE::tell
+=item tell(I<>) : Int
+
+Returns the current file position, or throws an exception on error.
+
+=cut
+
 sub tell {
     ### IO::Moose::Seekabe::tell: @_
 
@@ -159,7 +265,13 @@ sub tell {
 };
 
 
-# Pure Perl implementation
+=item getpos(I<>) : Int
+
+Returns a value that represents the current position of the file.  This method
+is implemented with B<tell> method.
+
+=cut
+
 sub getpos {
     ### IO::Moose::Seekabe::getpos: @_
 
@@ -184,7 +296,19 @@ sub getpos {
 };
 
 
-# Pure Perl implementation
+=item setpos( I<pos> : Int ) : Self
+
+Goes to the position stored previously with B<getpos> method.  Returns this
+object on success, throws an exception on failure.  This method is implemented
+with B<seek> method.
+
+  $pos = $file->getpos;
+  $file->print("something\n");
+  $file->setpos($pos);
+  print $file->readline;  # prints "something"
+
+=cut
+
 sub setpos {
     # IO::Moose::Seekabe::setpos: @_
 
@@ -225,7 +349,7 @@ sub setpos {
 1;
 
 
-__END__
+=back
 
 =begin umlwiki
 
@@ -246,121 +370,6 @@ __END__
 [IO::Moose::Seekable] ---> <<exception>> [Exception::Fatal] [Exception::IO]
 
 =end umlwiki
-
-=head1 INHERITANCE
-
-=over 2
-
-=item *
-
-extends L<IO::Moose::Handle>
-
-=over 2
-
-=item   *
-
-extends L<MooseX::GlobRef::Object>
-
-=over 2
-
-=item     *
-
-extends L<Moose::Object>
-
-=back
-
-=back
-
-=item *
-
-extends L<IO::Seekable>
-
-=over 2
-
-=item   *
-
-extends L<IO::Handle>
-
-=back
-
-=back
-
-=head1 EXCEPTIONS
-
-=over
-
-=item L<Exception::Argument>
-
-Thrown whether method is called with wrong argument.
-
-=item L<Exception::Fatal>
-
-Thrown whether fatal error is occurred by core function.
-
-=back
-
-=head1 METHODS
-
-=over
-
-=item seek( I<pos> : Int, I<whence> : Int ) : Self
-
-Seek the file to position I<pos>, relative to I<whence>:
-
-=over
-
-=item I<whence>=0 (SEEK_SET)
-
-I<pos> is absolute position. (Seek relative to the start of the file)
-
-=item I<whence>=1 (SEEK_CUR)
-
-I<pos> is an offset from the current position. (Seek relative to current)
-
-=item I<whence>=2 (SEEK_END)
-
-=back
-
-I<pos> is an offset from the end of the file. (Seek relative to end)
-
-The SEEK_* constants can be imported from the L<Fcntl> module if you don't
-wish to use the numbers 0, 1 or 2 in your code.  The SEEK_* constants are more
-portable.
-
-Returns self object on success or throws an exception.
-
-  use Fcntl ':seek';
-  $file->seek(0, SEEK_END);
-  $file->say("*** End of file");
-
-=item sysseek( I<pos> : Int, I<whence> : Int ) : Int
-
-Uses the system call lseek(2) directly so it can be used with B<sysread> and
-B<syswrite> methods.
-
-Returns the new position or throws an exception.
-
-=item tell(I<>) : Int
-
-Returns the current file position, or throws an exception on error.
-
-=item getpos(I<>) : Int
-
-Returns a value that represents the current position of the file.  This method
-is implemented with B<tell> method.
-
-=item setpos( I<pos> : Int ) : Self
-
-Goes to the position stored previously with B<getpos> method.  Returns this
-object on success, throws an exception on failure.  This method is implemented
-with B<seek> method.
-
-  $pos = $file->getpos;
-  $file->print("something\n");
-  $file->setpos($pos);
-  print $file->readline;  # prints "something"
-
-=back
 
 =head1 SEE ALSO
 

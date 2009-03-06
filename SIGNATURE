@@ -14,62 +14,66 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 9d5f52705e6172c2601db98ca6164a0a3e1fb90a Build.PL
-SHA1 e69337db4b91049d5467a9646ca488b8aa2eb28c Changes
+SHA1 104ce849942f8f7470fd64258121b4425836219d Build.PL
+SHA1 7a328432193c0840115c42cc4a5ad61a4caf1c1c Changes
 SHA1 6a2de0cf795f25a4fc654d7ed7bd52418f8520e5 Incompatibilities
 SHA1 752168fd36cc5334ab39b27e478f4997c296ec25 LICENSE
-SHA1 80eb7919be631c47cd295ce8e0430feb9be38bb6 MANIFEST
+SHA1 428cfb7dda29be52e731c7dedcaf1df07df1604a MANIFEST
 SHA1 7d9037725a8f8c9c65eff1e091819c215f55c650 MANIFEST.SKIP
-SHA1 db23d2af1b5a9e8774d56b703c26530787fd13de META.yml
-SHA1 d7789cf2e92dae8b971afe1ef0a3903c085d9cd2 Makefile.PL
+SHA1 8370726a1e117c6265dba360ea1bb02401c64405 META.yml
+SHA1 4e3b62621430350e497bcd13508126daae14c846 Makefile.PL
 SHA1 744aa3bba7b2053624a9cefc1504bd6593616a12 README
-SHA1 2cfadd410fbde83a8a0ce55a17f925198603af1f eg/file_size_func.pl
-SHA1 ecdc9acaca1a61051ed65e36cda2cb843fabbbd3 eg/file_size_oo.pl
+SHA1 0d5c88ffc9084b323a6d38941a4ff0b6f3dff996 eg/file_size_func.pl
+SHA1 a0adb15bd48f7ef5ac81698cdf5398677718e4de eg/file_size_oo.pl
 SHA1 f6e56a68044d9ae60a3dc9e75023338adfab6333 eg/slurp.pl
 SHA1 2f3d40e238ff9e46f25ff826de4342eacfd7f551 eg/uniq_func.pl
 SHA1 c4c6d5475faaab707f758bf33e15bdbbfabb94b5 eg/uniq_oo.pl
 SHA1 a437c2bb7eabbaf66bbf7fa50bdba613ac5aa1fc eg/uniq_std.pl
-SHA1 47cf460a19099602144b3c3c1a596affdcd16149 lib/IO/Moose.pm
-SHA1 830df9ba806324122ad9b1501a0096ef13c8c03d lib/IO/Moose/File.pm
-SHA1 c085968caa8fc08b17d535be4ebcebaa97096c2e lib/IO/Moose/Handle.pm
-SHA1 0f0112a7d517eccf33b40c2f02a10d6a452e195c lib/IO/Moose/Seekable.pm
-SHA1 6bde13d17c168e164146497cc1cf9667105d7eff lib/MooseX/Types/CanonOpenModeStr.pm
-SHA1 bd5b15a2bb30096b7be07b5e30bae25a4d21aea6 lib/MooseX/Types/OpenModeStr.pm
-SHA1 3cc37e7fe423b3cd0d2f23e873bdd2fcc9e7437a lib/MooseX/Types/OpenModeWithLayerStr.pm
-SHA1 7fb3112936f6cd03ecdf942fb33454e33a81c8a2 lib/MooseX/Types/PerlIOLayerStr.pm
+SHA1 fbf0e1c18dadb2cd2eff89055306248905840615 lib/IO/Moose.pm
+SHA1 9c525c37b84200b4d09be8119747d92fa076fd03 lib/IO/Moose/File.pm
+SHA1 e793c8dcb8fa4f2b604b37b63c66fc02338c8726 lib/IO/Moose/Handle.pm
+SHA1 c5018aad5e58251f924d41ea942d3d82215a2f52 lib/IO/Moose/Seekable.pm
+SHA1 5c3bec38ee3e7d5d0ab84735a11329ad81e91f55 lib/MooseX/Types/CanonOpenModeStr.pm
+SHA1 6f792c4498440127d206d2f0b7bca07334b18bef lib/MooseX/Types/OpenModeStr.pm
+SHA1 36e07c848744d032ff3d384790875593786a8ae4 lib/MooseX/Types/OpenModeWithLayerStr.pm
+SHA1 30a778aec6fd6a5422f372e16efcb3bd1561a585 lib/MooseX/Types/PerlIOLayerStr.pm
 SHA1 26ba3871f2495155b587f8464d60f25e1e285551 t/all_tests.t
 SHA1 9800b2035edd0ac8481cc43473af4e3c48011209 t/all_tests_tainted.t
 SHA1 b2caa2be8129d957ddf5c7f3dcbe4b8eb66df2ec t/test.pl
 SHA1 adfac48e8b3f66945287964dd5397f24d2dffc24 t/test_tainted.pl
-SHA1 5f65cec3285c51d5eb3bddff079e98dcd6601b15 t/tlib/IO/Moose/FileOpenTest.pm
-SHA1 d5926b8f5a689b736349f8697cc5dac723d05fc0 t/tlib/IO/Moose/FileTest.pm
+SHA1 080ef2ab952cf471d5ed382c06d0b9bbb3274590 t/tlib/IO/Moose/FileOpenTest.pm
+SHA1 81acb2b8ba6bec0e8bfd5414fde4e50f45b0f0fb t/tlib/IO/Moose/FileTest.pm
 SHA1 119f77b282091483ffe137898cb906724dd20571 t/tlib/IO/Moose/HandleImportTest.pm
-SHA1 31d5bb053f63f7e6bb0e5443a8e9a4253afd6342 t/tlib/IO/Moose/HandleReadTest.pm
-SHA1 4be4b5ad5ed7c58335e80416d49cda30820f4f44 t/tlib/IO/Moose/HandleTest.pm
-SHA1 60a820e9fb7149c084f08d1743ac5bffbe664a15 t/tlib/IO/Moose/HandleWriteTest.pm
+SHA1 3f0b43813f1fb5226cb27c7be8c68904570a4c9c t/tlib/IO/Moose/HandleReadTest.pm
+SHA1 73a8c1a8ecc8783d11f033db2952546412a65a7c t/tlib/IO/Moose/HandleTest.pm
+SHA1 31e7d7d9ff8a589ea9765b965f757d306b87a875 t/tlib/IO/Moose/HandleWriteTest.pm
 SHA1 9711e518269750c417c34ac274b01cadf5055f35 t/tlib/IO/Moose/IO_MooseTest_Bad.pm
 SHA1 0edb2ebf7f3e734e999cfddf2ba8724c13d23fae t/tlib/IO/Moose/IO_MooseTest_Good.pm
-SHA1 8319d3623cb14dee64bf7c60997acbc58c6ebf4b t/tlib/IO/Moose/SeekableTest.pm
-SHA1 d9137d6e795c369dc46b75f26d39298f10c2a715 t/tlib/IO/MooseTest.pm
-SHA1 d1a6611287ea5f6bee276f1b3d6486607e3993ac xt/benchmark.pl
-SHA1 b56b358ce5eb4fd22d3e66f1cb1c5231bf0c457f xt/consistent_version_numbers.t
-SHA1 cd748ade99c6f4613a6a8b2579df4f55af6b9db8 xt/copyright.t
+SHA1 f5e49d2736dd9625ea652692268337d9bf3d130a t/tlib/IO/Moose/SeekableTest.pm
+SHA1 b22f42edd66d9fcad6a9599134e9773e917e31c3 t/tlib/IO/MooseTest.pm
+SHA1 2798bf408243eba39bb66679d95670fc4bedcb89 xt/benchmark.pl
+SHA1 17cc7d70cd807353f4798e40593eab5a8de1b46d xt/benchmark_readline.pl
+SHA1 90353a99ac0f719b6f3e58029804d8556cedc2ab xt/check_changes.t
+SHA1 a56d0c02b6c992e04a77d13a6ee89504bd718572 xt/consistent_version_numbers.t
+SHA1 67bb4c141ea95809f3db2d526ce91d9e6d894756 xt/copyright.t
 SHA1 650dccfa9b6f5a98cf731c89041bea8935dbc623 xt/cover.pl
-SHA1 0cc035a7059d85dbe3345dd77ab3bfcb26747eea xt/distribution.t
-SHA1 ce95b12540d6fa64569e97e3bc58142d567a9109 xt/kwalitee.t
+SHA1 f5aac658ae1888964274e68d179413782082b7ad xt/distribution.t
+SHA1 44147122d52fef90ab3a2c65ebba4f89342174f8 xt/kwalitee.t
 SHA1 6e7f9dde7560793bcb40acc41561e07d163ad6d1 xt/minimumversion.t
-SHA1 8625d867e8834f8d88abc5b1d81ce455d8001b04 xt/perlcritic.t
+SHA1 e8daa0c73cfc304c240fad2d2c2b1b628175a89d xt/perlcritic.t
 SHA1 ede4ee29792dc8ca86d33e6c220ff493d8fdbe56 xt/perlcriticrc
 SHA1 775b3ac02805b6d703614f42608732fb43af2a41 xt/pod_coverage.t
-SHA1 e12a701e6b800d6ce464f3d95082de372203c690 xt/pod_spell.xt
+SHA1 bef7d46eb5cbc3e67956d4e823ec199f41ab9268 xt/pod_spell.t
+SHA1 d7f5285ede7823809fbc565bce382d122d0a753c xt/pod_spellrc
 SHA1 2c579b58def8daec94f41b628ac81c256faaa2b1 xt/pod_syntax.t
 SHA1 d25d7ae3c9aef00f20f6febe09e9925a9f3ce020 xt/profile.pl
 SHA1 4c4eea76df7712dc30bfd7327498817a36fd3341 xt/profile_tmpfile.pl
+SHA1 a38994922fda6d64e2ee75198fadc464a221fea9 xt/signature.t
 SHA1 ffbfb92133e04509ba4997894d1f0417048d4cb5 xt/trace.pl
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.9 (GNU/Linux)
 
-iEYEARECAAYFAkmFlTMACgkQhMHHe8CxClvergCg7HYHAySiv4Xck2GdvV+1Vxig
-5l8AnAwT5K5v/livuWiC0Gxd2mL4Ae5T
-=Ab8X
+iEYEARECAAYFAkmxGmQACgkQhMHHe8CxClu23QCeOHoouBmv51OP98+7zY+HXFa9
+tmgAn3P0Y5mzq1Rr6HfqSBXlKpSINKAA
+=KkPj
 -----END PGP SIGNATURE-----

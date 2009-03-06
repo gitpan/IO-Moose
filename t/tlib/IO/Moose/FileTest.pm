@@ -10,15 +10,21 @@ use Test::Assert ':all';
 
 use IO::Moose::File;
 
+use File::Spec;
 use File::Temp;
 
 use Scalar::Util 'reftype', 'openhandle', 'tainted';
 
-my ($filename_in, $filename_out);
+my ($filename_in, $filename_out, @filenames_out);
 
 sub set_up {
     $filename_in = __FILE__;
-    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', TMPDIR =>1 );
+    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', DIR => File::Spec->tmpdir );
+    push @filenames_out, $filename_out;
+};
+
+sub DESTROY {
+    unlink foreach @filenames_out;
 };
 
 sub tear_down {
@@ -36,6 +42,31 @@ sub test___isa {
     assert_isa('Moose::Object', $obj);
     assert_isa('MooseX::GlobRef::Object', $obj);
     assert_equals('GLOB', reftype $obj);
+};
+
+sub test___api {
+    my @api = grep { ! /^_/ } @{ Class::Inspector->functions('IO::Moose::File') };
+    assert_deep_equals( [ qw{
+        BINMODE
+        OPEN
+        binmode
+        close
+        file
+        has_file
+        has_layer
+        has_mode
+        has_perms
+        has_sysmode
+        layer
+        meta
+        mode
+        new
+        new_tmpfile
+        open
+        perms
+        sysmode
+        sysopen
+    } ], \@api );
 };
 
 sub test_new_empty {

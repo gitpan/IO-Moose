@@ -45,6 +45,20 @@ sub test___isa {
     assert_equals('GLOB', reftype $obj);
 };
 
+sub test___api {
+    my @api = grep { ! /^_/ } @{ Class::Inspector->functions('IO::Moose::Seekable') };
+    assert_deep_equals( [ qw{
+        SEEK
+        TELL
+        getpos
+        meta
+        seek
+        setpos
+        sysseek
+        tell
+    } ], \@api );
+};
+
 sub test___Fcntl {
     assert_not_null(eval { __PACKAGE__->SEEK_SET });
     assert_not_null(eval { __PACKAGE__->SEEK_CUR });

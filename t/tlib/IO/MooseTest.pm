@@ -10,6 +10,13 @@ use Test::Assert ':all';
 
 use IO::Moose ();
 
+sub test___api {
+    my @api = grep { ! /^_/ } @{ Class::Inspector->functions('IO::Moose') };
+    assert_deep_equals( [ qw{
+        import
+    } ], \@api );
+};
+
 sub test_import_good {
     my $self = shift;
     IO::Moose->import( 'IO_MooseTest_Good' );
