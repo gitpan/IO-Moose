@@ -1,4 +1,12 @@
 ------------------------------------------------------------------------
+0.1001 | Piotr Roszatycki <dexter@cpan.org> | 2009-03-07
+
+Fixes:
+
+* Requires namespace::clean.
+* Workaround for a bug of getc with untaint on Ubuntu intrepid.
+
+------------------------------------------------------------------------
 0.10 | Piotr Roszatycki <dexter@cpan.org> | 2009-03-05
 
 Fixes:
@@ -15,7 +23,7 @@ Changes:
   * The object and the attribute "fh" are the same IO handle if the attribute
     "tied" is false value.
   * TIEHANDLE doesn't create reference to normal object.
-  * Method "ungetc" calls IO::Handle::ungetc. 
+  * Method "ungetc" calls IO::Handle::ungetc.
 
 ------------------------------------------------------------------------
 0.09 | Piotr Roszatycki <dexter@debian.org> | 2009-02-01

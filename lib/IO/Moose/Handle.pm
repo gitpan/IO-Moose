@@ -59,7 +59,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.10';
+our $VERSION = '0.1001';
 
 use Moose;
 
@@ -1022,9 +1022,11 @@ sub getc {
         assert_false("Should throw an exception ealier") if ASSERT;
     };
 
-    if (${^TAINT} and not ($strict_accessors ? $self->tainted : $hashref->{tainted}) and defined $char) {
-        $char =~ /(.*)/;
-        $char = $1;
+    if (${^TAINT} and defined $char and not ($strict_accessors ? $self->tainted : $hashref->{tainted})) {
+        # Bug on Ubuntu intrepid: does not work: $char =~ /(.*)/; $char = $1
+        ord($char) =~ /(\d+)/;
+        my $c = chr($1);
+        $char = $c;
     };
 
     return $char;

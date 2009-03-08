@@ -18,6 +18,7 @@ my $build = Module::Build->new(
         'perl'                    => 5.008,
         'constant::boolean'       => 0,
         'maybe'                   => 0,
+        'namespace::clean'        => 0,
         'Exception::Argument'     => 0,
         'Exception::Base'         => 0.21,
         'Exception::Died'         => 0,
