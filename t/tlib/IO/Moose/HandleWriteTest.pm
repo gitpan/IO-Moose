@@ -539,13 +539,6 @@ sub test_getc_ungetc {
     };
 
     $obj->ungetc(ord('1'));
-    $obj->ungetc(ord('2'));
-
-    {
-        my $c = $obj->getc;
-        assert_equals('2', $c);
-    };
-
     {
         my $c = $obj->getc;
         assert_equals('1', $c);

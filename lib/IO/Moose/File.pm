@@ -43,7 +43,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.1001';
+our $VERSION = '0.1002';
 
 use Moose;
 

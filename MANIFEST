@@ -55,4 +55,3 @@ xt/profile_tmpfile.pl
 xt/signature.t
 xt/trace.pl
 SIGNATURE    Added here by Module::Build
-SIGNATURE    Added here by Module::Build
