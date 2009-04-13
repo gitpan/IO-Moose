@@ -25,16 +25,23 @@ t/all_tests.t
 t/all_tests_tainted.t
 t/test.pl
 t/test_tainted.pl
-t/tlib/IO/Moose/FileOpenTest.pm
-t/tlib/IO/Moose/FileTest.pm
-t/tlib/IO/Moose/HandleImportTest.pm
-t/tlib/IO/Moose/HandleReadTest.pm
-t/tlib/IO/Moose/HandleTest.pm
-t/tlib/IO/Moose/HandleWriteTest.pm
-t/tlib/IO/Moose/IO_MooseTest_Bad.pm
-t/tlib/IO/Moose/IO_MooseTest_Good.pm
-t/tlib/IO/Moose/SeekableTest.pm
-t/tlib/IO/MooseTest.pm
+t/tlib/IO/Moose/File/OpenTest.pm
+t/tlib/IO/Moose/File/Test.pm
+t/tlib/IO/Moose/Handle/ImportTest.pm
+t/tlib/IO/Moose/Handle/ReadTest.pm
+t/tlib/IO/Moose/Handle/Test.pm
+t/tlib/IO/Moose/Handle/WriteTest.pm
+t/tlib/IO/Moose/HasObjectTestRole.pm
+t/tlib/IO/Moose/IO_Moose_Test_Bad.pm
+t/tlib/IO/Moose/IO_Moose_Test_Good.pm
+t/tlib/IO/Moose/ReadableFilenameTestRole.pm
+t/tlib/IO/Moose/ReadableOpenedTestRole.pm
+t/tlib/IO/Moose/ReadableTestRole.pm
+t/tlib/IO/Moose/Seekable/Test.pm
+t/tlib/IO/Moose/Test.pm
+t/tlib/IO/Moose/WritableFilenameTestRole.pm
+t/tlib/IO/Moose/WritableOpenedTestRole.pm
+t/tlib/IO/Moose/WritableTestRole.pm
 xt/benchmark.pl
 xt/benchmark_readline.pl
 xt/check_changes.t
@@ -54,4 +61,5 @@ xt/profile.pl
 xt/profile_tmpfile.pl
 xt/signature.t
 xt/trace.pl
+SIGNATURE    Added here by Module::Build
 SIGNATURE    Added here by Module::Build

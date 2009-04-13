@@ -1,48 +1,18 @@
-package IO::Moose::FileTest;
-
-use strict;
-use warnings;
+package IO::Moose::File::Test;
 
 use Test::Unit::Lite;
-use parent 'Test::Unit::TestCase';
+
+use Moose;
+extends 'Test::Unit::TestCase';
+
+with 'IO::Moose::ReadableFilenameTestRole';
+with 'IO::Moose::WritableFilenameTestRole';
 
 use Test::Assert ':all';
 
 use IO::Moose::File;
 
-use File::Spec;
-use File::Temp;
-
 use Scalar::Util 'reftype', 'openhandle', 'tainted';
-
-my ($filename_in, $filename_out, @filenames_out);
-
-sub set_up {
-    $filename_in = __FILE__;
-    (undef, $filename_out) = File::Temp::tempfile( 'XXXXXXXX', DIR => File::Spec->tmpdir );
-    push @filenames_out, $filename_out;
-};
-
-sub DESTROY {
-    unlink foreach @filenames_out;
-};
-
-sub tear_down {
-    unlink $filename_out;
-};
-
-sub test___isa {
-    my $obj = IO::Moose::File->new;
-    assert_isa('IO::File', $obj);
-    assert_isa('IO::Handle', $obj);
-    assert_isa('IO::Seekable', $obj);
-    assert_isa('IO::Moose::File', $obj);
-    assert_isa('IO::Moose::Handle', $obj);
-    assert_isa('IO::Moose::Seekable', $obj);
-    assert_isa('Moose::Object', $obj);
-    assert_isa('MooseX::GlobRef::Object', $obj);
-    assert_equals('GLOB', reftype $obj);
-};
 
 sub test___api {
     my @api = grep { ! /^_/ } @{ Class::Inspector->functions('IO::Moose::File') };
@@ -70,6 +40,8 @@ sub test___api {
 };
 
 sub test_new_empty {
+    my ($self) = @_;
+
     my $obj = IO::Moose::File->new;
     assert_isa('IO::Moose::File', $obj);
     assert_equals('GLOB', reftype $obj);
@@ -79,17 +51,21 @@ sub test_new_empty {
 };
 
 sub test_new_open_default {
-    my $obj = IO::Moose::File->new( file => $filename_in );
+    my ($self) = @_;
+
+    my $obj = IO::Moose::File->new( file => $self->filename_in );
     assert_isa('IO::Moose::File', $obj);
 
-    assert_equals("package IO::Moose::FileTest;\n", $obj->readline);
+    assert_matches(qr/^package IO::Moose::/, $obj->readline);
 };
 
 sub test_new_open_write {
-    my $obj = IO::Moose::File->new( file => $filename_out, mode => '+>' );
+    my ($self) = @_;
+
+    my $obj = IO::Moose::File->new( file => $self->filename_out, mode => '+>' );
     assert_isa('IO::Moose::File', $obj);
 
-    assert_equals($filename_out, $obj->file);
+    assert_equals($self->filename_out, $obj->file);
     assert_equals("+>", $obj->mode);
 
     $obj->print("test_new_open_write\n");
@@ -99,43 +75,53 @@ sub test_new_open_write {
 };
 
 sub test_new_open_layer {
-    my $obj = IO::Moose::File->new( file => $filename_in, layer => ':crlf' );
+    my ($self) = @_;
+
+    my $obj = IO::Moose::File->new( file => $self->filename_in, layer => ':crlf' );
     assert_isa('IO::Moose::File', $obj);
 
-    assert_equals($filename_in, $obj->file);
+    assert_equals($self->filename_in, $obj->file);
     assert_equals(":crlf", $obj->layer);
 
-    assert_equals("package IO::Moose::FileTest;\n", $obj->readline);
+    assert_matches(qr/^package IO::Moose::/, $obj->readline);
 };
 
 sub test_new_sysopen_no_tied {
-    my $obj = IO::Moose::File->new( file => $filename_in, sysmode => 0, tied => 0 );
+    my ($self) = @_;
+
+    my $obj = IO::Moose::File->new( file => $self->filename_in, sysmode => 0, tied => 0 );
     assert_isa('IO::Moose::File', $obj);
 
-    assert_equals("package IO::Moose::FileTest;\n", $obj->readline);
+    assert_matches(qr/^package IO::Moose::/, $obj->readline);
 };
 
 sub test_new_error_io {
+    my ($self) = @_;
+
     assert_raises( ['Exception::IO'], sub {
         IO::Moose::File->new( file => 'nosuchfile_abcdef'.$$ );
     } );
 };
 
 sub test_new_error_args {
+    my ($self) = @_;
+
     assert_raises( qr/does not pass the type constraint/, sub {
-        IO::Moose::File->new( file => $filename_in, mode => 'badmode' );
+        IO::Moose::File->new( file => $self->filename_in, mode => 'badmode' );
     } );
 
     assert_raises( qr/does not pass the type constraint/, sub {
-        IO::Moose::File->new( file => $filename_in, layer => 'badmode' );
+        IO::Moose::File->new( file => $self->filename_in, layer => 'badmode' );
     } );
 
     assert_raises( qr/does not pass the type constraint/, sub {
-        IO::Moose::File->new( file => $filename_in, mode => 0, perms => 'badperms' );
+        IO::Moose::File->new( file => $self->filename_in, mode => 0, perms => 'badperms' );
     } );
 };
 
 sub test_new_tmpfile {
+    my ($self) = @_;
+
     my $obj = IO::Moose::File->new_tmpfile;
     assert_isa('IO::Moose::File', $obj);
 
@@ -146,6 +132,8 @@ sub test_new_tmpfile {
 };
 
 sub test_new_tmpfile_args {
+    my ($self) = @_;
+
     my $obj = IO::Moose::File->new_tmpfile( SUFFIX => $$, output_record_separator => '.' );
     assert_isa('IO::Moose::File', $obj);
     $obj->print("test_new_open_write");
@@ -155,13 +143,17 @@ sub test_new_tmpfile_args {
 };
 
 sub test_new_tmpfile_error_io {
+    my ($self) = @_;
+
     assert_raises( ['Exception::Fatal'], sub {
         IO::Moose::File->new_tmpfile( DIR => '/nosuchdir_abcdef'.$$ );
     } );
 };
 
 sub test_slurp_wantscalar_static_tainted {
-    my $c = IO::Moose::File->slurp( file => $filename_in, tainted => 1, autochomp => 1 );
+    my ($self) = @_;
+
+    my $c = IO::Moose::File->slurp( file => $self->filename_in, tainted => 1, autochomp => 1 );
     assert_true(length $c > 1, 'length $c > 1');
     assert_true($c =~ tr/\n// > 1, '$c =~ tr/\n// > 1');
     assert_matches(qr/\n$/s, $c);
@@ -172,7 +164,9 @@ sub test_slurp_wantscalar_static_tainted {
 };
 
 sub test_slurp_wantscalar_static_untainted {
-    my $c = IO::Moose::File->slurp( file => $filename_in, tainted => 0, autochomp => 1 );
+    my ($self) = @_;
+
+    my $c = IO::Moose::File->slurp( file => $self->filename_in, tainted => 0, autochomp => 1 );
     assert_true(length $c > 1, 'length $c > 1');
     assert_true($c =~ tr/\n// > 1, '$c =~ tr/\n// > 1');
     assert_matches(qr/\n$/s, $c);
@@ -183,7 +177,9 @@ sub test_slurp_wantscalar_static_untainted {
 };
 
 sub test_slurp_wantarray_static_tainted {
-    my @c = IO::Moose::File->slurp( file => $filename_in, tainted => 1, autochomp => 1 );
+    my ($self) = @_;
+
+    my @c = IO::Moose::File->slurp( file => $self->filename_in, tainted => 1, autochomp => 1 );
     assert_true(@c > 1, '@c > 1');
     assert_true($c[0] =~ tr/\n// == 0, '$c[0] =~ tr/\n// == 0');
 
@@ -193,7 +189,9 @@ sub test_slurp_wantarray_static_tainted {
 };
 
 sub test_slurp_wantarray_static_untainted {
-    my @c = IO::Moose::File->slurp( file => $filename_in, tainted => 0, autochomp => 1 );
+    my ($self) = @_;
+
+    my @c = IO::Moose::File->slurp( file => $self->filename_in, tainted => 0, autochomp => 1 );
     assert_true(@c > 1, '@c > 1');
     assert_true($c[0] =~ tr/\n// == 0, '$c[0] =~ tr/\n// == 0');
 

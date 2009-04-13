@@ -59,7 +59,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.1002';
+our $VERSION = '0.1003';
 
 use Moose;
 
@@ -385,7 +385,7 @@ sub import {
         }
         else {
             Exception::Argument->throw(
-                message => "Unknown argument for import: " . (defined $arg ? $arg : 'undef'),
+                message => ['Unknown argument for import: %s', (defined $arg ? $arg : 'undef')],
             );
         };
     };
@@ -639,7 +639,7 @@ sub new_from_fd {
 
     my $class = shift;
     Exception::Argument->throw(
-        message => 'Usage: ' . __PACKAGE__ . '->new_from_fd(FD, [MODE])',
+        message => ['Usage: %s->new_from_fd(FD, [MODE])', __PACKAGE__],
     ) if @_ < 1 or @_ > 2;
 
     my ($fd, $mode) = @_;
@@ -1455,7 +1455,7 @@ sub slurp {
     my %args = @_;
 
     Exception::Argument->throw(
-        message => "Usage: \$io->slurp() or $class->slurp(file=>FILE)"
+        message => ['Usage: $io->slurp() or %s->slurp(file=>FILE)', __PACKAGE__],
     ) if not blessed $self and not defined $args{file} or blessed $self and @_ > 0;
 
     if (not blessed $self) {
@@ -1861,7 +1861,7 @@ for complete descriptions.
             ### IO::Moose::Handle::$func: $func, @_
             my $self = shift;
             Exception::Argument->throw(
-                message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
+                message => ['Usage: $io->%2$s([EXPR]) or %1$s->%2$s([EXPR])', __PACKAGE__, $func],
             ) if @_ > 1;
             if (ref $self) {
                 my $prev = do { \%{*$self} }->{$func};
@@ -1896,7 +1896,7 @@ for complete descriptions.
             ### IO::Moose::Handle::$func: $func, @_
             my $self = shift;
             Exception::Argument->throw(
-                message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
+                message => ['Usage: $io->%2$s([EXPR]) or %1$s->%2$s([EXPR])', __PACKAGE__, $func],
             ) if @_ > 1;
             if (ref $self) {
                 my $oldfh = select *$self;
@@ -1930,7 +1930,7 @@ for complete descriptions.
             ### IO::Moose::Handle::$func: $func, @_
             my $self = shift;
             Exception::Argument->throw(
-                message => "Usage: \$io->$func([EXPR]) or " . __PACKAGE__ . "->$func([EXPR])"
+                message => ['Usage: $io->%2$s([EXPR]) or %1$s->%2$s([EXPR])', __PACKAGE__, $func],
             ) if @_ > 1;
             if (ref $self) {
                 my $oldfh = select *$self;
@@ -1953,7 +1953,9 @@ for complete descriptions.
 };
 
 # Aliasing accessor
-__PACKAGE__->meta->alias_method('autoflush' => \&output_autoflush);
+__PACKAGE__->meta->add_method(
+    'autoflush' => __PACKAGE__->meta->get_method('output_autoflush')
+);
 
 
 # Aliasing tie hooks to real functions
@@ -2130,11 +2132,11 @@ The API is not stable yet and can be changed in future.
 
 =head1 AUTHOR
 
-Piotr Roszatycki <dexter@debian.org>
+Piotr Roszatycki <dexter@cpan.org>
 
 =head1 LICENSE
 
-Copyright 2007, 2008, 2009 by Piotr Roszatycki E<lt>dexter@debian.orgE<gt>.
+Copyright 2007, 2008, 2009 by Piotr Roszatycki <dexter@cpan.org>.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -1,4 +1,4 @@
-package IO::Moose::IO_MooseTest_Good;
+package IO::Moose::IO_Moose_Test_Good;
 
 use strict;
 use warnings;

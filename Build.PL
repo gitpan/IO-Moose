@@ -20,7 +20,7 @@ my $build = Module::Build->new(
         'maybe'                   => 0,
         'namespace::clean'        => 0,
         'Exception::Argument'     => 0,
-        'Exception::Base'         => 0.21,
+        'Exception::Base'         => 0.22,
         'Exception::Died'         => 0,
         'Exception::Fatal'        => 0,
         'Exception::System'       => 0.11,
@@ -33,7 +33,6 @@ my $build = Module::Build->new(
         'Smart::Comments'         => 0,
     },
     build_requires => {
-        'parent'                  => 0,
         'Class::Inspector'        => 0,
         'Exception::Warning'      => 0,
         'Taint::Runtime'          => 0,

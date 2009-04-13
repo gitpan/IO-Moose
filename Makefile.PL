@@ -8,7 +8,7 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Class::Inspector' => 0,
                            'Exception::Argument' => 0,
-                           'Exception::Base' => '0.21',
+                           'Exception::Base' => '0.22',
                            'Exception::Died' => 0,
                            'Exception::Fatal' => 0,
                            'Exception::System' => '0.11',
@@ -21,8 +21,7 @@ WriteMakefile
                            'Test::Unit::Lite' => '0.11',
                            'constant::boolean' => 0,
                            'maybe' => 0,
-                           'namespace::clean' => 0,
-                           'parent' => 0
+                           'namespace::clean' => 0
                          },
           'INSTALLDIRS' => 'site',
           'EXE_FILES' => []
