@@ -50,7 +50,7 @@ use 5.006;
 use strict;
 use warnings;
 
-our $VERSION = '0.1003';
+our $VERSION = '0.1004';
 
 use Class::MOP;
 
@@ -60,7 +60,7 @@ use Exception::Base (
 );
 
 
-## no critic (RequireArgUnpacking)
+## no critic qw(RequireArgUnpacking)
 
 =head1 IMPORTS
 

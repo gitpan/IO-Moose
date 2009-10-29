@@ -59,7 +59,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.1003';
+our $VERSION = '0.1004';
 
 use Moose;
 
@@ -315,7 +315,7 @@ as C<IO::Moose::Handle-E<gt>accessor>.
 
         has "$attr" => (
             is        => 'rw',
-            has       => 'Str',
+            isa       => 'Maybe[Str]',
             reader    => "_get_$attr",
             writer    => "_set_$attr",
             clearer   => "clear_$attr",
@@ -341,12 +341,12 @@ has '_error' => (
 use namespace::clean -except => 'meta';
 
 
-## no critic (ProhibitOneArgSelect)
-## no critic (ProhibitBuiltinHomonyms)
-## no critic (ProhibitCaptureWithoutTest)
-## no critic (RequireArgUnpacking)
-## no critic (RequireCheckingReturnValueOfEval)
-## no critic (RequireLocalizedPunctuationVars)
+## no critic qw(ProhibitOneArgSelect)
+## no critic qw(ProhibitBuiltinHomonyms)
+## no critic qw(ProhibitCaptureWithoutTest)
+## no critic qw(RequireArgUnpacking)
+## no critic qw(RequireCheckingReturnValueOfEval)
+## no critic qw(RequireLocalizedPunctuationVars)
 
 =head1 IMPORTS
 
@@ -1779,7 +1779,7 @@ sub untaint {
 
 
 # Clean up on destroy
-sub DESTROY {
+sub DEMOLISH {
     ### IO::Moose::Handle::DESTROY: @_
 
     my ($self) = @_;

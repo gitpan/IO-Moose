@@ -47,7 +47,7 @@ use 5.008;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.1003';
+our $VERSION = '0.1004';
 
 use Moose;
 
@@ -132,9 +132,9 @@ use if $ENV{PERL_DEBUG_IO_MOOSE_SEEKABLE}, 'Smart::Comments';
 use namespace::clean -except => 'meta';
 
 
-## no critic (ProhibitBuiltinHomonyms)
-## no critic (RequireArgUnpacking)
-## no critic (RequireCheckingReturnValueOfEval)
+## no critic qw(ProhibitBuiltinHomonyms)
+## no critic qw(RequireArgUnpacking)
+## no critic qw(RequireCheckingReturnValueOfEval)
 
 =head1 METHODS
 
